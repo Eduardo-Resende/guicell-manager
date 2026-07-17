@@ -40,12 +40,12 @@
           </select>
         </div>
 
-        <div class="form-group m-0">
+        <div class="form-group m-0" v-if="reportType !== 'estoque'">
           <label>Data de Início</label>
           <input type="date" v-model="dateStart" class="input-control" />
         </div>
 
-        <div class="form-group m-0">
+        <div class="form-group m-0" v-if="reportType !== 'estoque'">
           <label>Data de Fim</label>
           <input type="date" v-model="dateEnd" class="input-control" />
         </div>
@@ -63,20 +63,20 @@
       <div v-if="reportType === 'os'" class="preview-body">
         <div class="kpis-grid mb-6">
           <div class="kpi-box">
-            <span class="kpi-label">OS Abertas no Período</span>
-            <span class="kpi-val text-white">45</span>
+            <span class="kpi-label">OS no Período</span>
+            <span class="kpi-val text-white">{{ osReportData.totais.total }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">OS Concluídas</span>
-            <span class="kpi-val text-success">38</span>
+            <span class="kpi-val text-success">{{ osReportData.totais.por_status['Concluído'] || 0 }}</span>
           </div>
           <div class="kpi-box">
-            <span class="kpi-label">Média de Dias p/ Reparo</span>
-            <span class="kpi-val text-info">2.4 dias</span>
+            <span class="kpi-label">OS Entregues</span>
+            <span class="kpi-val text-primary">{{ osReportData.totais.por_status['Entregue'] || 0 }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Faturamento OS</span>
-            <span class="kpi-val text-white">R$ 8.940,00</span>
+            <span class="kpi-val text-white">R$ {{ parseFloat(osReportData.totais.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
         </div>
 
@@ -94,29 +94,18 @@
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td class="font-semibold text-white">#2026-0014</td>
-                  <td>Eduardo Santana</td>
-                  <td>iPhone 13</td>
-                  <td>Eduardo Santana</td>
-                  <td>R$ 850,00</td>
-                  <td><span class="badge badge-info">Em Reparo</span></td>
+                <tr v-for="os in osReportData.ordens" :key="os.id_os">
+                  <td class="font-semibold text-white">#{{ os.numero_os }}</td>
+                  <td>{{ os.cliente?.nome || 'N/A' }}</td>
+                  <td>{{ os.aparelho?.marca }} {{ os.aparelho?.modelo }}</td>
+                  <td>{{ os.tecnico?.nome || 'N/A' }}</td>
+                  <td class="font-bold text-success">R$ {{ parseFloat(os.valor_calculado ?? os.valor_final ?? os.valor_orcado ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                  <td>
+                    <span :class="['badge', getBadgeClass(os.status)]">{{ os.status }}</span>
+                  </td>
                 </tr>
-                <tr>
-                  <td class="font-semibold text-white">#2026-0012</td>
-                  <td>Carlos Roberto</td>
-                  <td>Motorola G200</td>
-                  <td>Sandro Gouvea</td>
-                  <td>R$ 145,00</td>
-                  <td><span class="badge badge-success">Concluído</span></td>
-                </tr>
-                <tr>
-                  <td class="font-semibold text-white">#2026-0011</td>
-                  <td>Julia Almeida</td>
-                  <td>iPhone 11</td>
-                  <td>Eduardo Santana</td>
-                  <td>R$ 470,00</td>
-                  <td><span class="badge badge-danger">Aguard. Peça</span></td>
+                <tr v-if="osReportData.ordens.length === 0">
+                  <td colspan="6" class="text-center text-muted py-6">Nenhuma Ordem de Serviço encontrada no período selecionado.</td>
                 </tr>
               </tbody>
             </table>
@@ -129,19 +118,15 @@
         <div class="kpis-grid mb-6">
           <div class="kpi-box">
             <span class="kpi-label">Total Vendas Avulsas</span>
-            <span class="kpi-val text-white">68</span>
+            <span class="kpi-val text-white">{{ vendasReportData.totais.total_vendas }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Ticket Médio</span>
-            <span class="kpi-val text-info">R$ 55,20</span>
-          </div>
-          <div class="kpi-box">
-            <span class="kpi-label">Produto mais Vendido</span>
-            <span class="kpi-val text-success">Película 3D</span>
+            <span class="kpi-val text-info">R$ {{ (vendasReportData.totais.total_vendas > 0 ? (vendasReportData.totais.valor_total / vendasReportData.totais.total_vendas) : 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Faturamento Total</span>
-            <span class="kpi-val text-white">R$ 3.753,60</span>
+            <span class="kpi-val text-success">R$ {{ parseFloat(vendasReportData.totais.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
         </div>
 
@@ -149,34 +134,33 @@
           <table>
             <thead>
               <tr>
-                <th>Item/Acessório</th>
-                <th>Categoria</th>
-                <th>Unidades Vendidas</th>
-                <th>Ticket Médio</th>
-                <th>Total Vendido</th>
+                <th>Código Venda</th>
+                <th>Data/Hora</th>
+                <th>Operador</th>
+                <th>Itens</th>
+                <th>Desconto</th>
+                <th>Total Recebido</th>
+                <th>Pagamento</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="font-semibold text-white">Película de Vidro 3D iPhone 13</td>
-                <td>Acessório</td>
-                <td>32 un</td>
-                <td>R$ 25,00</td>
-                <td class="font-bold text-success">R$ 800,00</td>
+              <tr v-for="v in vendasReportData.vendas" :key="v.id_venda">
+                <td class="font-semibold text-white">#{{ v.id_venda.toString().padStart(4, '0') }}</td>
+                <td>{{ new Date(v.data_venda).toLocaleString('pt-BR') }}</td>
+                <td>{{ v.atendente?.nome || 'Operador' }}</td>
+                <td>
+                  <div class="text-xs text-muted" v-for="(it, idx) in v.itens" :key="idx">
+                    • {{ it.produto?.descricao }} (x{{ it.quantidade }})
+                  </div>
+                </td>
+                <td class="text-danger">R$ {{ parseFloat(v.desconto || 0).toFixed(2) }}</td>
+                <td class="font-bold text-success">R$ {{ parseFloat(v.valor_total).toFixed(2) }}</td>
+                <td>
+                  <span class="badge badge-info">{{ v.forma_pagamento }}</span>
+                </td>
               </tr>
-              <tr>
-                <td class="font-semibold text-white">Capinha Silicone Anti-Impacto</td>
-                <td>Acessório</td>
-                <td>24 un</td>
-                <td>R$ 35,00</td>
-                <td class="font-bold text-success">R$ 840,00</td>
-              </tr>
-              <tr>
-                <td class="font-semibold text-white">Fone de Ouvido Bluetooth JBL</td>
-                <td>Acessório</td>
-                <td>6 un</td>
-                <td>R$ 189,00</td>
-                <td class="font-bold text-success">R$ 1.134,00</td>
+              <tr v-if="vendasReportData.vendas.length === 0">
+                <td colspan="7" class="text-center text-muted py-6">Nenhuma venda avulsa registrada no período selecionado.</td>
               </tr>
             </tbody>
           </table>
@@ -188,19 +172,19 @@
         <div class="kpis-grid mb-6">
           <div class="kpi-box">
             <span class="kpi-label">Total de Receitas</span>
-            <span class="kpi-val text-success">R$ 12.693,60</span>
+            <span class="kpi-val text-success">R$ {{ parseFloat(caixaReportData.totais.entradas).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Total de Despesas</span>
-            <span class="kpi-val text-danger">R$ 1.450,00</span>
+            <span class="kpi-val text-danger">R$ {{ parseFloat(caixaReportData.totais.saidas).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Saldo Acumulado</span>
-            <span class="kpi-val text-primary font-bold">R$ 11.243,60</span>
+            <span class="kpi-val text-primary font-bold">R$ {{ parseFloat(caixaReportData.totais.saldo).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Transações Efetuadas</span>
-            <span class="kpi-val text-white">113</span>
+            <span class="kpi-val text-white">{{ caixaReportData.movimentacoes.length }}</span>
           </div>
         </div>
 
@@ -216,33 +200,17 @@
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="font-semibold text-white">Serviços / OS</td>
-                <td>45</td>
-                <td class="text-success">R$ 8.940,00</td>
-                <td class="text-muted">R$ 0,00</td>
-                <td class="font-bold text-success">R$ 8.940,00</td>
+              <tr v-for="cat in groupedCaixa" :key="cat.nome">
+                <td class="font-semibold text-white">{{ cat.nome }}</td>
+                <td>{{ cat.count }}</td>
+                <td class="text-success">R$ {{ cat.entradas.toFixed(2) }}</td>
+                <td class="text-danger">R$ {{ cat.saidas.toFixed(2) }}</td>
+                <td class="font-bold" :class="cat.entradas - cat.saidas >= 0 ? 'text-success' : 'text-danger'">
+                  R$ {{ (cat.entradas - cat.saidas).toFixed(2) }}
+                </td>
               </tr>
-              <tr>
-                <td class="font-semibold text-white">Venda de Acessórios</td>
-                <td>68</td>
-                <td class="text-success">R$ 3.753,60</td>
-                <td class="text-muted">R$ 0,00</td>
-                <td class="font-bold text-success">R$ 3.753,60</td>
-              </tr>
-              <tr>
-                <td class="font-semibold text-white">Fornecedores / Compras</td>
-                <td>5</td>
-                <td class="text-muted">R$ 0,00</td>
-                <td class="text-danger">R$ 1.100,00</td>
-                <td class="font-bold text-danger">- R$ 1.100,00</td>
-              </tr>
-              <tr>
-                <td class="font-semibold text-white">Infraestrutura</td>
-                <td>2</td>
-                <td class="text-muted">R$ 0,00</td>
-                <td class="text-danger">R$ 350,00</td>
-                <td class="font-bold text-danger">- R$ 350,00</td>
+              <tr v-if="groupedCaixa.length === 0">
+                <td colspan="5" class="text-center text-muted py-6">Nenhuma movimentação registrada no período selecionado.</td>
               </tr>
             </tbody>
           </table>
@@ -254,19 +222,19 @@
         <div class="kpis-grid mb-6">
           <div class="kpi-box">
             <span class="kpi-label">Total Itens em Estoque</span>
-            <span class="kpi-val text-white">124</span>
+            <span class="kpi-val text-white">{{ estoqueReportData.totais.total }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Itens com Estoque Crítico</span>
-            <span class="kpi-val text-danger">3</span>
+            <span class="kpi-val text-danger">{{ estoqueReportData.totais.em_alerta }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Valor de Custo Acumulado</span>
-            <span class="kpi-val text-info">R$ 4.850,00</span>
+            <span class="kpi-val text-info">R$ {{ totalCustoEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
           <div class="kpi-box">
             <span class="kpi-label">Retorno Esperado Venda</span>
-            <span class="kpi-val text-success">R$ 8.120,00</span>
+            <span class="kpi-val text-success">R$ {{ totalVendaEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           </div>
         </div>
 
@@ -283,29 +251,19 @@
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="font-semibold text-white">Bateria Compatível S22</td>
-                <td>Bateria</td>
-                <td class="text-danger font-bold">2 un</td>
-                <td>2 un</td>
-                <td>R$ 180,00</td>
-                <td><span class="badge badge-danger">Repor Urgente</span></td>
+              <tr v-for="p in estoqueReportData.produtos" :key="p.id_produto">
+                <td class="font-semibold text-white">{{ p.descricao }}</td>
+                <td>{{ p.categoriaRef ? p.categoriaRef.nome : 'Sem Categoria' }}</td>
+                <td :class="{ 'text-danger font-bold': p.estoque_atual <= p.estoque_minimo }">{{ p.estoque_atual }} un</td>
+                <td>{{ p.estoque_minimo }} un</td>
+                <td>R$ {{ parseFloat(p.valor_venda).toFixed(2) }}</td>
+                <td>
+                  <span v-if="p.estoque_atual <= p.estoque_minimo" class="badge badge-danger">Repor Urgente</span>
+                  <span v-else class="badge badge-success">Estável</span>
+                </td>
               </tr>
-              <tr>
-                <td class="font-semibold text-white">Câmera Traseira iPhone 11</td>
-                <td>Câmera</td>
-                <td class="text-danger font-bold">1 un</td>
-                <td>2 un</td>
-                <td>R$ 320,00</td>
-                <td><span class="badge badge-danger">Repor Urgente</span></td>
-              </tr>
-              <tr>
-                <td class="font-semibold text-white">Tela Frontal iPhone 13 OLED</td>
-                <td>Tela</td>
-                <td class="text-warning font-bold">4 un</td>
-                <td>2 un</td>
-                <td>R$ 650,00</td>
-                <td><span class="badge badge-warning">Acompanhar</span></td>
+              <tr v-if="estoqueReportData.produtos.length === 0">
+                <td colspan="6" class="text-center text-muted py-6">Nenhum produto cadastrado no estoque.</td>
               </tr>
             </tbody>
           </table>
@@ -316,14 +274,25 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { relatoriosService } from '../services/index.js';
 
 export default defineComponent({
   name: 'RelatoriosView',
   setup() {
     const reportType = ref('os');
-    const dateStart = ref('2026-06-01');
-    const dateEnd = ref('2026-06-10');
+
+    // Inicializa datas com primeiro dia do mês corrente até a data de hoje
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const dateStart = ref(firstDay.toISOString().split('T')[0]);
+    const dateEnd = ref(today.toISOString().split('T')[0]);
+
+    // Data structures para os relatórios
+    const osReportData = ref({ ordens: [], totais: { total: 0, valor_total: 0, por_status: {} } });
+    const vendasReportData = ref({ vendas: [], totais: { total_vendas: 0, valor_total: 0 } });
+    const caixaReportData = ref({ movimentacoes: [], totais: { entradas: 0, saidas: 0, saldo: 0 } });
+    const estoqueReportData = ref({ produtos: [], totais: { total: 0, em_alerta: 0 } });
 
     const reportTitle = computed(() => {
       switch (reportType.value) {
@@ -335,15 +304,94 @@ export default defineComponent({
       }
     });
 
+    const fetchReport = async () => {
+      const params = { data_inicio: dateStart.value, data_fim: dateEnd.value };
+      try {
+        if (reportType.value === 'os') {
+          const data = await relatoriosService.os(params);
+          osReportData.value = data;
+        } else if (reportType.value === 'vendas') {
+          const data = await relatoriosService.vendas(params);
+          vendasReportData.value = data;
+        } else if (reportType.value === 'caixa') {
+          const data = await relatoriosService.caixa(params);
+          caixaReportData.value = data;
+        } else if (reportType.value === 'estoque') {
+          const data = await relatoriosService.estoque();
+          estoqueReportData.value = data;
+        }
+      } catch (err) {
+        console.error('Erro ao buscar dados do relatório:', err);
+      }
+    };
+
+    // Recarrega relatório quando mudam as datas ou tipo de relatório
+    watch([reportType, dateStart, dateEnd], () => {
+      fetchReport();
+    });
+
+    // Agrupa dados de caixa em categorias
+    const groupedCaixa = computed(() => {
+      const categories = {};
+      (caixaReportData.value.movimentacoes || []).forEach(mov => {
+        const cat = mov.categoria || 'Outros';
+        if (!categories[cat]) {
+          categories[cat] = { nome: cat, count: 0, entradas: 0, saidas: 0 };
+        }
+        categories[cat].count++;
+        if (mov.tipo === 'entrada') {
+          categories[cat].entradas += parseFloat(mov.valor);
+        } else {
+          categories[cat].saidas += parseFloat(mov.valor);
+        }
+      });
+      return Object.values(categories);
+    });
+
+    // Custo acumulado do estoque
+    const totalCustoEstoque = computed(() => {
+      return (estoqueReportData.value.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_custo || 0) * p.estoque_atual, 0);
+    });
+
+    // Retorno esperado do estoque
+    const totalVendaEstoque = computed(() => {
+      return (estoqueReportData.value.produtos || []).reduce((sum, p) => sum + parseFloat(p.valor_venda || 0) * p.estoque_atual, 0);
+    });
+
+    const getBadgeClass = (status) => {
+      switch (status) {
+        case 'Aguardando': return 'badge-warning';
+        case 'Em Reparo': return 'badge-info';
+        case 'Aguardando Peça':
+        case 'Aguard. Peça': return 'badge-danger';
+        case 'Concluído': return 'badge-success';
+        case 'Entregue': return 'badge-success';
+        case 'Cancelado': return 'badge-muted';
+        default: return 'badge-muted';
+      }
+    };
+
     const exportData = (format) => {
       alert(`Exportação do Relatório (${reportTitle.value}) em formato ${format} realizada com sucesso.`);
     };
+
+    onMounted(() => {
+      fetchReport();
+    });
 
     return {
       reportType,
       dateStart,
       dateEnd,
       reportTitle,
+      osReportData,
+      vendasReportData,
+      caixaReportData,
+      estoqueReportData,
+      groupedCaixa,
+      totalCustoEstoque,
+      totalVendaEstoque,
+      getBadgeClass,
       exportData
     };
   }

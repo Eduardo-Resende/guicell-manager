@@ -39,7 +39,7 @@
           >
             <div class="product-info-wrap">
               <span class="product-desc font-semibold text-white block">{{ p.descricao }}</span>
-              <span class="product-cat text-muted text-xs block">{{ p.categoria }}</span>
+              <span class="product-cat text-muted text-xs block">{{ p.categoria }} <span v-if="p.codigo_barras">| EAN: {{ p.codigo_barras }}</span></span>
             </div>
             <div class="product-price-add flex justify-between items-center mt-3">
               <span class="price-label text-success font-semibold">R$ {{ p.venda.toFixed(2) }}</span>
@@ -177,7 +177,8 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { produtosService, vendasService } from '../services/index.js';
 
 export default defineComponent({
   name: 'VendasView',
@@ -187,24 +188,64 @@ export default defineComponent({
     const desconto = ref(0);
     const formaPagamento = ref('PIX');
     const cart = ref([]);
+    const catalog = ref([]);
+    const sales = ref([]);
 
-    const catalog = ref([
-      { id: 1, descricao: 'Película de Vidro 3D iPhone 13', categoria: 'Acessório', venda: 25.00, qtd: 15 },
-      { id: 2, descricao: 'Cabo Carregador USB-C Reforçado', categoria: 'Acessório', venda: 45.00, qtd: 8 },
-      { id: 3, descricao: 'Capinha Silicone Anti-Impacto', categoria: 'Acessório', venda: 35.00, qtd: 20 },
-      { id: 4, descricao: 'Fone de Ouvido Bluetooth JBL', categoria: 'Acessório', venda: 189.00, qtd: 4 },
-      { id: 5, descricao: 'Carregador de Parede Turbo 20W', categoria: 'Acessório', venda: 85.00, qtd: 3 }
-    ]);
+    const fetchCatalog = async () => {
+      try {
+        const data = await produtosService.listar({ tipo_uso: 'Venda' });
+        catalog.value = data.map(p => ({
+          id: p.id_produto,
+          codigo_barras: p.codigo_barras,
+          descricao: p.descricao,
+          categoria: p.categoriaRef ? p.categoriaRef.nome : 'Sem Categoria',
+          venda: parseFloat(p.valor_venda),
+          qtd: p.estoque_atual
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar catálogo de produtos:', err);
+      }
+    };
 
-    const sales = ref([
-      { id: 1, codigo: '1002', data: '10/06/2026 10:45', usuario: 'Gerente Guicell', itens: [{ descricao: 'Capinha Silicone Anti-Impacto', qtd: 1 }, { descricao: 'Película de Vidro 3D iPhone 13', qtd: 1 }], desconto: 5.00, total: 55.00, formaPagamento: 'PIX' },
-      { id: 2, codigo: '1001', data: '09/06/2026 15:30', usuario: 'Gerente Guicell', itens: [{ descricao: 'Fone de Ouvido Bluetooth JBL', qtd: 1 }], desconto: 0.00, total: 189.00, formaPagamento: 'Cartão' }
-    ]);
+    const fetchSales = async () => {
+      try {
+        const data = await vendasService.listar();
+        sales.value = data.map(s => ({
+          id: s.id_venda,
+          codigo: s.id_venda.toString().padStart(4, '0'),
+          data: new Date(s.data_venda).toLocaleString('pt-BR'),
+          usuario: s.atendente?.nome || 'Operador',
+          itens: (s.itens || []).map(it => ({
+            descricao: it.produto?.descricao || 'Produto/Item',
+            qtd: it.quantidade
+          })),
+          desconto: parseFloat(s.desconto || 0),
+          total: parseFloat(s.valor_total),
+          formaPagamento: s.forma_pagamento
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar histórico de vendas:', err);
+      }
+    };
+
+    watch(productQuery, (newVal) => {
+      if (newVal) {
+        // Se for uma busca exata por código de barras, adiciona direto ao carrinho
+        const exactMatch = catalog.value.find(p => p.codigo_barras === newVal.trim());
+        if (exactMatch) {
+          addToCart(exactMatch);
+          productQuery.value = ''; // Limpa para próxima leitura do leitor
+        }
+      }
+    });
 
     const filteredCatalog = computed(() => {
       if (!productQuery.value) return catalog.value;
       const q = productQuery.value.toLowerCase();
-      return catalog.value.filter(p => p.descricao.toLowerCase().includes(q));
+      return catalog.value.filter(p => 
+        p.descricao.toLowerCase().includes(q) ||
+        (p.codigo_barras && p.codigo_barras.toLowerCase().includes(q))
+      );
     });
 
     const subtotal = computed(() => {
@@ -262,37 +303,50 @@ export default defineComponent({
       }
     };
 
-    const finalizeSale = () => {
+    const finalizeSale = async () => {
       if (cart.value.length === 0) return;
+      try {
+        await vendasService.criar({
+          forma_pagamento: formaPagamento.value,
+          desconto: parseFloat(desconto.value || 0),
+          itens: cart.value.map(item => ({
+            id_produto: item.id,
+            quantidade: item.qtd
+          }))
+        });
 
-      // Update catalog quantities
-      cart.value.forEach(item => {
-        const prod = catalog.value.find(p => p.id === item.id);
-        if (prod) {
-          prod.qtd -= item.qtd;
+        // Registrar movimentações no histórico (localStorage)
+        const storedLogs = localStorage.getItem('guicell_movement_logs');
+        const logs = storedLogs ? JSON.parse(storedLogs) : [];
+        const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
+        const atendenteNome = userObj ? userObj.nome : 'Operador';
+
+        for (const item of cart.value) {
+          logs.unshift({
+            id: Date.now() + Math.random(),
+            data: new Date().toLocaleString('pt-BR'),
+            produto: item.descricao,
+            tipo: 'Saída',
+            qtd: item.qtd,
+            origem: 'Venda rápida (PDV)',
+            tecnico: atendenteNome
+          });
         }
-      });
+        localStorage.setItem('guicell_movement_logs', JSON.stringify(logs));
 
-      // Add to sales logs
-      const codeSeq = sales.value.length + 1001;
-      sales.value.unshift({
-        id: Date.now(),
-        codigo: `${codeSeq}`,
-        data: new Date().toLocaleString('pt-BR'),
-        usuario: 'Gerente Guicell',
-        itens: cart.value.map(item => ({ descricao: item.descricao, qtd: item.qtd })),
-        desconto: parseFloat(desconto.value || 0),
-        total: total.value,
-        formaPagamento: formaPagamento.value
-      });
-
-      alert(`Venda finalizada com sucesso! Total: R$ ${total.value.toFixed(2)}. Cupom impresso.`);
-      
-      // Reset POS
-      cart.value = [];
-      desconto.value = 0;
-      productQuery.value = '';
+        alert(`Venda finalizada com sucesso! Total: R$ ${total.value.toFixed(2)}.`);
+        cart.value = [];
+        desconto.value = 0;
+        await Promise.all([fetchCatalog(), fetchSales()]);
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao processar venda.');
+      }
     };
+
+    onMounted(() => {
+      fetchCatalog();
+      fetchSales();
+    });
 
     return {
       activeSubTab,
@@ -300,6 +354,7 @@ export default defineComponent({
       desconto,
       formaPagamento,
       cart,
+      catalog,
       filteredCatalog,
       subtotal,
       total,

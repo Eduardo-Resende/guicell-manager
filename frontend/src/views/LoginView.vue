@@ -97,19 +97,29 @@
           </div>
 
           <form @submit.prevent="handleLogin" class="login-form">
-            <!-- Email -->
+            <!-- Mensagem de Erro -->
+            <div v-if="errorMsg" class="alert-error">
+              <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{{ errorMsg }}</span>
+            </div>
+
+            <!-- Usuário -->
             <div class="form-group">
-              <label for="email">E-mail</label>
+              <label for="login">Usuário</label>
               <div class="input-wrapper">
                 <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                  <polyline points="22,6 12,13 2,6" />
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
                 <input 
-                  type="email" 
-                  id="email" 
-                  v-model="email" 
-                  placeholder="Digite seu e-mail" 
+                  type="text" 
+                  id="login" 
+                  v-model="login" 
+                  placeholder="Digite seu usuário" 
                   required 
                   class="input-control login-input"
                 />
@@ -206,39 +216,52 @@
 
 <script>
 import { defineComponent, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import loginHero from '../assets/login-hero.png';
+import { authService } from '../services/index.js';
 
 export default defineComponent({
   name: 'LoginView',
-  emits: ['login-success'],
-  setup(props, { emit }) {
-    const email = ref('gerente@guicell.com.br');
-    const password = ref('123456');
+  setup() {
+    const router = useRouter();
+    const login = ref('');
+    const password = ref('');
     const showPassword = ref(false);
     const rememberMe = ref(true);
+    const isLoading = ref(false);
+    const errorMsg = ref('');
 
-    const handleLogin = () => {
-      // Simulate login and redirect to dashboard
-      emit('login-success');
-    };
-
-    const handleGoogleLogin = () => {
-      emit('login-success');
+    const handleLogin = async () => {
+      if (!login.value || !password.value) {
+        errorMsg.value = 'Preencha o login e a senha.';
+        return;
+      }
+      isLoading.value = true;
+      errorMsg.value = '';
+      try {
+        await authService.login(login.value, password.value);
+        router.push('/dashboard');
+      } catch (err) {
+        errorMsg.value = err.response?.data?.error || 'Erro ao conectar com o servidor.';
+      } finally {
+        isLoading.value = false;
+      }
     };
 
     const handleForgotPassword = () => {
-      alert('Funcionalidade de recuperação de senha simulada para o protótipo.');
+      alert('Entre em contato com o administrador do sistema para redefinir sua senha.');
     };
 
     return {
-      email,
+      login,
       password,
       showPassword,
       rememberMe,
       loginHero,
+      isLoading,
+      errorMsg,
       handleLogin,
-      handleGoogleLogin,
-      handleForgotPassword
+      handleForgotPassword,
     };
   }
 });
@@ -251,6 +274,24 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+}
+
+.alert-error {
+  background-color: var(--danger-glow);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.alert-icon {
+  flex-shrink: 0;
 }
 
 .login-container {

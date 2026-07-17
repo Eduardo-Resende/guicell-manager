@@ -36,23 +36,42 @@
       >
         Histórico de Movimentações
       </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'categories' }]" 
+        @click="activeTab = 'categories'"
+      >
+        Gerenciar Categorias
+      </button>
     </div>
 
     <!-- Tab Content: Product List -->
     <div v-if="activeTab === 'list'" class="tab-content">
-      <!-- Search -->
+      <!-- Search & Filters -->
       <div class="card filters-card mb-4">
-        <div class="search-wrapper">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="Buscar produto ou peça pela descrição ou categoria..." 
-            class="input-control search-input"
-          />
+        <div class="flex gap-3">
+          <div class="search-wrapper w-full">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Buscar produto ou peça pela descrição..." 
+              class="input-control search-input"
+            />
+          </div>
+          <div style="width: 250px; flex-shrink: 0;">
+            <select v-model="selectedCategoryFilter" class="input-control select-control">
+              <option value="">Todas as Categorias</option>
+              <template v-for="parent in categoriesHierarchical" :key="parent.id_categoria">
+                <option :value="parent.id_categoria" class="font-bold">{{ parent.nome }}</option>
+                <option v-for="sub in parent.subcategorias" :key="sub.id_categoria" :value="sub.id_categoria">
+                  &nbsp;&nbsp;— {{ sub.nome }}
+                </option>
+              </template>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -77,9 +96,16 @@
                 <td>
                   <div class="item-detail">
                     <span class="font-semibold text-white block">{{ prod.descricao }}</span>
+                    <span class="text-xs text-muted block" v-if="prod.codigo_barras">EAN: {{ prod.codigo_barras }}</span>
                   </div>
                 </td>
-                <td>{{ prod.categoria }}</td>
+                <td>
+                  <span v-if="prod.categoriaRef">
+                    <span class="text-muted text-xs block" v-if="prod.categoriaRef.pai">{{ prod.categoriaRef.pai.nome }} &gt;</span>
+                    <span class="font-semibold text-white">{{ prod.categoriaRef.nome }}</span>
+                  </span>
+                  <span v-else class="text-muted">—</span>
+                </td>
                 <td class="font-bold" :class="{ 'text-danger': prod.qtd <= prod.min }">{{ prod.qtd }}</td>
                 <td>{{ prod.min }}</td>
                 <td>R$ {{ prod.custo.toFixed(2) }}</td>
@@ -123,7 +149,7 @@
     </div>
 
     <!-- Tab Content: Logs -->
-    <div v-else class="tab-content card">
+    <div v-else-if="activeTab === 'logs'" class="tab-content card">
       <div class="table-responsive">
         <table>
           <thead>
@@ -154,6 +180,164 @@
       </div>
     </div>
 
+    <!-- Tab Content: Categories Management -->
+    <div v-else-if="activeTab === 'categories'" class="tab-content categories-management">
+      <div class="grid grid-cols-2 gap-4">
+        <!-- List of Categories -->
+        <div class="card">
+          <h3 class="mb-4">Categorias Cadastradas</h3>
+          
+          <div class="categories-list">
+            <div v-for="parent in categoriesHierarchical" :key="parent.id_categoria" class="category-tree-node mb-4">
+              <div class="parent-node flex justify-between items-center py-2 border-b">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-lg">{{ parent.nome }}</span>
+                  <span :class="['badge', getTipoUsoBadge(parent.tipo_uso)]" style="font-size: 0.65rem; padding: 2px 8px;">{{ parent.tipo_uso }}</span>
+                </div>
+                <div class="flex gap-2">
+                  <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="openEditCategory(parent)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                  <button class="btn btn-danger btn-xs btn-icon-only" title="Remover" @click="deleteCategory(parent.id_categoria)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="sub-nodes ml-4 pl-3 border-l" style="border-color: var(--border);">
+                <div v-for="sub in parent.subcategorias" :key="sub.id_categoria" class="sub-node flex justify-between items-center py-2 border-b border-dashed" style="border-color: var(--border);">
+                  <div class="flex items-center gap-2">
+                    <span class="text-normal">{{ sub.nome }}</span>
+                    <span :class="['badge', getTipoUsoBadge(sub.tipo_uso)]" style="font-size: 0.6rem; padding: 1px 6px;">{{ sub.tipo_uso }}</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="openEditCategory(sub)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                    <button class="btn btn-danger btn-xs btn-icon-only" title="Remover" @click="deleteCategory(sub.id_categoria)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div v-if="parent.subcategorias.length === 0" class="py-2 text-xs text-muted">
+                  Nenhuma subcategoria vinculada.
+                </div>
+              </div>
+            </div>
+            <div v-if="categoriesHierarchical.length === 0" class="text-center text-muted py-6">
+              Nenhuma categoria cadastrada.
+            </div>
+          </div>
+        </div>
+        
+        <!-- Forms to Add Categories -->
+        <div class="flex flex-col gap-4">
+          <!-- Add Parent Category -->
+          <div class="card">
+            <h3 class="mb-4">Nova Categoria Principal</h3>
+            <form @submit.prevent="submitParentCategory">
+              <div class="form-group">
+                <label>Nome da Categoria Pai *</label>
+                <input type="text" v-model="parentCategoryForm.nome" required class="input-control" placeholder="Ex: Peça, Acessório" />
+              </div>
+              <div class="form-group">
+                <label>Tipo de Uso *</label>
+                <select v-model="parentCategoryForm.tipo_uso" required class="input-control select-control">
+                  <option value="Ambos">Ambos (PDV & OS)</option>
+                  <option value="Venda">Apenas Venda (PDV)</option>
+                  <option value="OS">Apenas Ordem de Serviço (OS)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn w-full">Criar Categoria Principal</button>
+            </form>
+          </div>
+          
+          <!-- Add Subcategory -->
+          <div class="card">
+            <h3 class="mb-4">Nova Subcategoria</h3>
+            <form @submit.prevent="submitSubCategory">
+              <div class="form-group">
+                <label>Categoria Pai *</label>
+                <select v-model="subCategoryForm.id_pai" required class="input-control select-control">
+                  <option value="">Selecione a categoria principal</option>
+                  <option v-for="cat in categoriesHierarchical" :key="cat.id_categoria" :value="cat.id_categoria">
+                    {{ cat.nome }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Nome da Subcategoria *</label>
+                <input type="text" v-model="subCategoryForm.nome" required class="input-control" placeholder="Ex: Capinha, Película, Bateria" />
+              </div>
+              <div class="form-group">
+                <label>Tipo de Uso (Opcional — Herda do pai se vazio)</label>
+                <select v-model="subCategoryForm.tipo_uso" class="input-control select-control">
+                  <option value="">Herdar da Categoria Pai</option>
+                  <option value="Ambos">Ambos (PDV & OS)</option>
+                  <option value="Venda">Apenas Venda (PDV)</option>
+                  <option value="OS">Apenas Ordem de Serviço (OS)</option>
+                </select>
+              </div>
+              <button type="submit" class="btn w-full">Criar Subcategoria</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Editar Categoria -->
+    <div v-if="showEditCategoryModal && editingCategoryObj" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Editar Categoria</h3>
+          <button class="close-btn" @click="showEditCategoryModal = false">&times;</button>
+        </div>
+        <form @submit.prevent="submitEditCategory">
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Nome da Categoria *</label>
+              <input type="text" v-model="editingCategoryObj.nome" required class="input-control" />
+            </div>
+            
+            <div class="form-group">
+              <label>Categoria Pai</label>
+              <select v-model="editingCategoryObj.id_pai" class="input-control select-control">
+                <option value="">Nenhuma (Tornar Principal)</option>
+                <option v-for="cat in categoriesHierarchical.filter(c => c.id_categoria !== editingCategoryObj.id_categoria)" :key="cat.id_categoria" :value="cat.id_categoria">
+                  {{ cat.nome }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group m-0">
+              <label>Tipo de Uso *</label>
+              <select v-model="editingCategoryObj.tipo_uso" required class="input-control select-control">
+                <option value="Ambos">Ambos (PDV & OS)</option>
+                <option value="Venda">Apenas Venda (PDV)</option>
+                <option value="OS">Apenas Ordem de Serviço (OS)</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showEditCategoryModal = false">Cancelar</button>
+            <button type="submit" class="btn">Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Modal: Novo / Editar Produto -->
     <div v-if="showAddModal" class="modal-overlay">
       <div class="modal-content">
@@ -164,19 +348,24 @@
         <form @submit.prevent="submitProduct">
           <div class="modal-body">
             <div class="form-group">
+              <label>Código de Barras</label>
+              <input type="text" v-model="form.codigo_barras" class="input-control" placeholder="EAN-13 / GTIN ou código interno" />
+            </div>
+
+            <div class="form-group">
               <label>Descrição do Item *</label>
               <input type="text" v-model="form.descricao" required class="input-control" placeholder="Ex: Tela Frontal iPhone 12 OLED" />
             </div>
 
             <div class="form-group">
               <label>Categoria *</label>
-              <select v-model="form.categoria" required class="input-control select-control">
-                <option value="Tela">Tela / Frontal</option>
-                <option value="Bateria">Bateria</option>
-                <option value="Acessório">Acessório</option>
-                <option value="Conector">Conector de Carga</option>
-                <option value="Câmera">Câmera</option>
-                <option value="Outros">Outras peças</option>
+              <select v-model="form.id_categoria" required class="input-control select-control">
+                <option value="">Selecione a Categoria</option>
+                <optgroup v-for="parent in categoriesHierarchical" :key="parent.id_categoria" :label="parent.nome">
+                  <option v-for="sub in parent.subcategorias" :key="sub.id_categoria" :value="sub.id_categoria">
+                    {{ sub.nome }}
+                  </option>
+                </optgroup>
               </select>
             </div>
 
@@ -249,20 +438,32 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { produtosService, categoriasService } from '../services/index.js';
 
 export default defineComponent({
   name: 'EstoqueView',
   setup() {
     const activeTab = ref('list');
     const searchQuery = ref('');
+    const selectedCategoryFilter = ref('');
     const showAddModal = ref(false);
     const showAddEntryModal = ref(false);
     const editingId = ref(null);
+    const products = ref([]);
+    const categoriesHierarchical = ref([]);
+    const categoriesFlat = ref([]);
+
+    // Category Forms
+    const parentCategoryForm = ref({ nome: '', tipo_uso: 'Ambos' });
+    const subCategoryForm = ref({ nome: '', id_pai: '', tipo_uso: '' });
+    const editingCategoryObj = ref(null);
+    const showEditCategoryModal = ref(false);
 
     const form = ref({
+      codigo_barras: '',
       descricao: '',
-      categoria: 'Tela',
+      id_categoria: '',
       qtd: 5,
       min: 2,
       custo: 0.00,
@@ -275,30 +476,55 @@ export default defineComponent({
       origem: ''
     });
 
-    const products = ref([
-      { id: 1, descricao: 'Tela Frontal iPhone 13 OLED', categoria: 'Tela', qtd: 4, min: 2, custo: 400.00, venda: 650.00 },
-      { id: 2, descricao: 'Bateria Compatível S22', categoria: 'Bateria', qtd: 2, min: 2, custo: 100.00, venda: 180.00 },
-      { id: 3, descricao: 'Conector de Carga Tipo C', categoria: 'Conector', qtd: 15, min: 5, custo: 15.00, venda: 45.00 },
-      { id: 4, descricao: 'Câmera Traseira iPhone 11', categoria: 'Câmera', qtd: 1, min: 2, custo: 210.00, venda: 320.00 },
-      { id: 5, descricao: 'Película de Vidro 3D Genérica', categoria: 'Acessório', qtd: 45, min: 10, custo: 3.50, venda: 20.00 },
-      { id: 6, descricao: 'Cabo Lightning iPhone 1m', categoria: 'Acessório', qtd: 12, min: 5, custo: 12.00, venda: 40.00 }
-    ]);
+    const getMovementLogs = () => {
+      const stored = localStorage.getItem('guicell_movement_logs');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      const initial = [
+        { id: 1, data: '10/07/2026 10:15', produto: 'Tela Frontal iPhone 13 OLED', tipo: 'Saída', qtd: 1, origem: 'OS #OS-20260717-0001', tecnico: 'Técnico Padrão' },
+        { id: 2, data: '09/07/2026 17:45', produto: 'Conector de Carga Tipo C', tipo: 'Saída', qtd: 1, origem: 'OS #OS-20260717-0002', tecnico: 'Técnico Padrão' },
+        { id: 3, data: '08/07/2026 14:00', produto: 'Bateria Compatível S22', tipo: 'Entrada', qtd: 5, origem: 'Compra Distribuidora', tecnico: 'Gerente Padrão' }
+      ];
+      localStorage.setItem('guicell_movement_logs', JSON.stringify(initial));
+      return initial;
+    };
 
-    const movementLogs = ref([
-      { id: 1, data: '10/06/2026 10:15', produto: 'Tela Frontal iPhone 13 OLED', tipo: 'Saída', qtd: 1, origem: 'OS #2026-0014', tecnico: 'Eduardo Santana' },
-      { id: 2, data: '09/06/2026 17:45', produto: 'Conector de Carga Tipo C', tipo: 'Saída', qtd: 1, origem: 'OS #2026-0012', tecnico: 'Sandro Gouvea' },
-      { id: 3, data: '09/06/2026 15:20', produto: 'Câmera Traseira iPhone 11', tipo: 'Saída', qtd: 1, origem: 'OS #2026-0011', tecnico: 'Eduardo Santana' },
-      { id: 4, data: '08/06/2026 14:00', produto: 'Bateria Compatível S22', tipo: 'Entrada', qtd: 5, origem: 'Compra Distribuidora', tecnico: 'Sandro Gouvea' },
-      { id: 5, data: '08/06/2026 11:30', produto: 'Película de Vidro 3D Genérica', tipo: 'Saída', qtd: 1, origem: 'Venda PDV #1002', tecnico: 'Gerente Guicell' }
-    ]);
+    const movementLogs = ref(getMovementLogs());
 
-    const filteredProducts = computed(() => {
-      if (!searchQuery.value) return products.value;
-      const query = searchQuery.value.toLowerCase();
-      return products.value.filter(p => 
-        p.descricao.toLowerCase().includes(query) || 
-        p.categoria.toLowerCase().includes(query)
-      );
+    const fetchCategories = async () => {
+      try {
+        const hierarchicalData = await categoriasService.listar('true');
+        categoriesHierarchical.value = hierarchicalData;
+        const flatData = await categoriasService.listar('false');
+        categoriesFlat.value = flatData;
+      } catch (err) {
+        console.error('Erro ao buscar categorias:', err);
+      }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        const params = { busca: searchQuery.value };
+        if (selectedCategoryFilter.value) {
+          params.id_categoria = selectedCategoryFilter.value;
+        }
+        const data = await produtosService.listar(params);
+        products.value = data.map(p => ({
+          ...p,
+          id: p.id_produto, // map template binding
+          qtd: p.estoque_atual,
+          min: p.estoque_minimo,
+          custo: parseFloat(p.valor_custo || 0),
+          venda: parseFloat(p.valor_venda || 0)
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar produtos:', err);
+      }
+    };
+
+    watch([searchQuery, selectedCategoryFilter], () => {
+      fetchProducts();
     });
 
     const sortedLogs = computed(() => {
@@ -308,84 +534,204 @@ export default defineComponent({
     const closeModal = () => {
       showAddModal.value = false;
       editingId.value = null;
-      form.value = { descricao: '', categoria: 'Tela', qtd: 5, min: 2, custo: 0, venda: 0 };
+      form.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 5, min: 2, custo: 0, venda: 0 };
     };
 
-    const submitProduct = () => {
-      if (editingId.value) {
-        const idx = products.value.findIndex(p => p.id === editingId.value);
-        if (idx !== -1) {
-          products.value[idx] = { 
-            ...products.value[idx], 
-            ...form.value,
-            custo: parseFloat(form.value.custo),
-            venda: parseFloat(form.value.venda)
-          };
-        }
-      } else {
-        const newProd = {
-          id: Date.now(),
-          ...form.value,
-          custo: parseFloat(form.value.custo),
-          venda: parseFloat(form.value.venda)
-        };
-        products.value.push(newProd);
-        
-        // Log entry
-        movementLogs.value.unshift({
-          id: Date.now(),
-          data: new Date().toLocaleString('pt-BR'),
-          produto: newProd.descricao,
-          tipo: 'Entrada',
-          qtd: newProd.qtd,
-          origem: 'Cadastro Inicial',
-          tecnico: 'Gerente Guicell'
-        });
+    const submitProduct = async () => {
+      if (!form.value.descricao || !form.value.venda) {
+        alert('Descrição e preço de venda são obrigatórios.');
+        return;
       }
-      closeModal();
+      try {
+        const payload = {
+          codigo_barras: form.value.codigo_barras || null,
+          descricao: form.value.descricao,
+          id_categoria: form.value.id_categoria ? parseInt(form.value.id_categoria) : null,
+          estoque_atual: parseInt(form.value.qtd),
+          estoque_minimo: parseInt(form.value.min),
+          valor_custo: parseFloat(form.value.custo),
+          valor_venda: parseFloat(form.value.venda)
+        };
+
+        if (editingId.value) {
+          await produtosService.atualizar(editingId.value, payload);
+        } else {
+          await produtosService.criar(payload);
+          const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
+          const tecnicoNome = userObj ? userObj.nome : 'Gerente Padrão';
+          movementLogs.value.unshift({
+            id: Date.now(),
+            data: new Date().toLocaleString('pt-BR'),
+            produto: payload.descricao,
+            tipo: 'Entrada',
+            qtd: payload.estoque_atual,
+            origem: 'Cadastro Inicial',
+            tecnico: tecnicoNome
+          });
+          localStorage.setItem('guicell_movement_logs', JSON.stringify(movementLogs.value));
+        }
+        await fetchProducts();
+        closeModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao salvar produto.');
+      }
     };
 
     const editProduct = (prod) => {
-      editingId.value = prod.id;
-      form.value = { ...prod };
+      editingId.value = prod.id_produto;
+      form.value = {
+        codigo_barras: prod.codigo_barras || '',
+        descricao: prod.descricao,
+        id_categoria: prod.id_categoria || '',
+        qtd: prod.estoque_atual,
+        min: prod.estoque_minimo,
+        custo: parseFloat(prod.valor_custo || 0),
+        venda: parseFloat(prod.valor_venda)
+      };
       showAddModal.value = true;
     };
 
-    const submitEntry = () => {
-      const prod = products.value.find(p => p.id === parseInt(entryForm.value.produtoId));
-      if (prod) {
-        prod.qtd += parseInt(entryForm.value.qtd);
-        
-        movementLogs.value.unshift({
-          id: Date.now(),
-          data: new Date().toLocaleString('pt-BR'),
-          produto: prod.descricao,
-          tipo: 'Entrada',
-          qtd: parseInt(entryForm.value.qtd),
-          origem: entryForm.value.origem,
-          tecnico: 'Gerente Guicell'
-        });
-
+    const submitEntry = async () => {
+      if (!entryForm.value.produtoId || !entryForm.value.qtd) {
+        alert('Selecione o produto e a quantidade.');
+        return;
+      }
+      try {
+        await produtosService.registrarEntrada(entryForm.value.produtoId, entryForm.value.qtd);
+        const prodObj = products.value.find(p => p.id_produto === parseInt(entryForm.value.produtoId));
+        if (prodObj) {
+          const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
+          const tecnicoNome = userObj ? userObj.nome : 'Gerente Padrão';
+          movementLogs.value.unshift({
+            id: Date.now(),
+            data: new Date().toLocaleString('pt-BR'),
+            produto: prodObj.descricao,
+            tipo: 'Entrada',
+            qtd: parseInt(entryForm.value.qtd),
+            origem: entryForm.value.origem || 'Entrada manual',
+            tecnico: tecnicoNome
+          });
+          localStorage.setItem('guicell_movement_logs', JSON.stringify(movementLogs.value));
+        }
+        await fetchProducts();
         showAddEntryModal.value = false;
         entryForm.value = { produtoId: '', qtd: 1, origem: '' };
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao registrar entrada de estoque.');
+      }
+    };
+
+    const submitParentCategory = async () => {
+      if (!parentCategoryForm.value.nome) return;
+      try {
+        await categoriasService.criar({
+          nome: parentCategoryForm.value.nome,
+          tipo_uso: parentCategoryForm.value.tipo_uso
+        });
+        parentCategoryForm.value = { nome: '', tipo_uso: 'Ambos' };
+        await fetchCategories();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao criar categoria.');
+      }
+    };
+
+    const submitSubCategory = async () => {
+      if (!subCategoryForm.value.nome || !subCategoryForm.value.id_pai) {
+        alert('Selecione a categoria pai e preencha o nome da subcategoria.');
+        return;
+      }
+      try {
+        await categoriasService.criar({
+          nome: subCategoryForm.value.nome,
+          id_pai: parseInt(subCategoryForm.value.id_pai),
+          tipo_uso: subCategoryForm.value.tipo_uso || undefined
+        });
+        subCategoryForm.value = { nome: '', id_pai: subCategoryForm.value.id_pai, tipo_uso: '' };
+        await fetchCategories();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao criar subcategoria.');
+      }
+    };
+
+    const openEditCategory = (cat) => {
+      editingCategoryObj.value = {
+        id_categoria: cat.id_categoria,
+        nome: cat.nome,
+        id_pai: cat.id_pai || '',
+        tipo_uso: cat.tipo_uso
+      };
+      showEditCategoryModal.value = true;
+    };
+
+    const submitEditCategory = async () => {
+      if (!editingCategoryObj.value.nome) return;
+      try {
+        await categoriasService.atualizar(editingCategoryObj.value.id_categoria, {
+          nome: editingCategoryObj.value.nome,
+          id_pai: editingCategoryObj.value.id_pai ? parseInt(editingCategoryObj.value.id_pai) : null,
+          tipo_uso: editingCategoryObj.value.tipo_uso
+        });
+        showEditCategoryModal.value = false;
+        editingCategoryObj.value = null;
+        await fetchCategories();
+        await fetchProducts();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao editar categoria.');
+      }
+    };
+
+    const deleteCategory = async (id) => {
+      if (!confirm('Deseja realmente remover esta categoria?')) return;
+      try {
+        await categoriasService.remover(id);
+        await fetchCategories();
+        await fetchProducts();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao remover categoria.');
+      }
+    };
+
+    onMounted(() => {
+      fetchCategories();
+      fetchProducts();
+    });
+
+    const getTipoUsoBadge = (tipo) => {
+      switch (tipo) {
+        case 'Venda': return 'badge-success';
+        case 'OS': return 'badge-info';
+        default: return 'badge-muted';
       }
     };
 
     return {
       activeTab,
       searchQuery,
+      selectedCategoryFilter,
       showAddModal,
       showAddEntryModal,
       editingId,
       form,
       entryForm,
       products,
-      filteredProducts,
+      filteredProducts: products, // direct search bind
       sortedLogs,
       closeModal,
       submitProduct,
       editProduct,
-      submitEntry
+      submitEntry,
+      categoriesHierarchical,
+      categoriesFlat,
+      parentCategoryForm,
+      subCategoryForm,
+      editingCategoryObj,
+      showEditCategoryModal,
+      submitParentCategory,
+      submitSubCategory,
+      openEditCategory,
+      submitEditCategory,
+      deleteCategory,
+      getTipoUsoBadge
     };
   }
 });

@@ -66,6 +66,13 @@
               </td>
               <td class="text-muted">{{ u.criado }}</td>
               <td class="text-right">
+                <button class="btn btn-secondary btn-xs mr-2" @click="openEditModal(u)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                  <span>Editar</span>
+                </button>
                 <button class="btn btn-secondary btn-xs mr-2" @click="openResetPassword(u)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -146,19 +153,60 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal: Editar Usuário -->
+    <div v-if="showEditModal && editForm" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Editar Usuário</h3>
+          <button class="close-btn" @click="closeEditModal">&times;</button>
+        </div>
+        <form @submit.prevent="submitEditUser">
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Nome Completo *</label>
+              <input type="text" v-model="editForm.nome" required class="input-control" placeholder="Ex: Emilly Gabrielly" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group m-0">
+                <label>Login de Acesso *</label>
+                <input type="text" v-model="editForm.login" required class="input-control" placeholder="usuario.acesso" />
+              </div>
+              <div class="form-group m-0">
+                <label>Perfil de Acesso *</label>
+                <select v-model="editForm.perfil" required class="input-control select-control">
+                  <option value="Atendente">Atendente</option>
+                  <option value="Técnico">Técnico</option>
+                  <option value="Gerente">Gerente</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeEditModal">Cancelar</button>
+            <button type="submit" class="btn">Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, onMounted } from 'vue';
+import { usuariosService } from '../services/index.js';
 
 export default defineComponent({
   name: 'UsuariosView',
   setup() {
     const showAddModal = ref(false);
     const showResetModal = ref(false);
+    const showEditModal = ref(false);
     const selectedUser = ref(null);
     const newPassword = ref('');
+    const users = ref([]);
+    const editForm = ref({ id_usuario: null, nome: '', login: '', perfil: '' });
 
     const form = ref({
       nome: '',
@@ -167,12 +215,18 @@ export default defineComponent({
       senha: ''
     });
 
-    const users = ref([
-      { id: 1, nome: 'Gerente Guicell', login: 'gerente.guicell', perfil: 'Gerente', ativo: true, criado: '10/01/2026' },
-      { id: 2, nome: 'Sandro Gouvea', login: 'sandro.tecnico', perfil: 'Técnico', ativo: true, criado: '15/01/2026' },
-      { id: 3, nome: 'Eduardo Santana', login: 'eduardo.tecnico', perfil: 'Técnico', ativo: true, criado: '20/02/2026' },
-      { id: 4, nome: 'Emilly Gabrielly', login: 'emilly.atendente', perfil: 'Atendente', ativo: true, criado: '15/03/2026' }
-    ]);
+    const fetchUsers = async () => {
+      try {
+        const data = await usuariosService.listar();
+        users.value = data.map(u => ({
+          ...u,
+          id: u.id_usuario, // map template binding
+          criado: new Date(u.criado_em).toLocaleDateString('pt-BR')
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar usuários:', err);
+      }
+    };
 
     const getProfileBadge = (profile) => {
       switch (profile) {
@@ -183,8 +237,13 @@ export default defineComponent({
       }
     };
 
-    const toggleStatus = (user) => {
-      user.ativo = !user.ativo;
+    const toggleStatus = async (user) => {
+      try {
+        await usuariosService.toggleAtivo(user.id_usuario);
+        await fetchUsers();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao alterar status do usuário.');
+      }
     };
 
     const closeModal = () => {
@@ -192,16 +251,23 @@ export default defineComponent({
       form.value = { nome: '', login: '', perfil: 'Atendente', senha: '' };
     };
 
-    const submitUser = () => {
-      users.value.push({
-        id: Date.now(),
-        nome: form.value.nome,
-        login: form.value.login,
-        perfil: form.value.perfil,
-        ativo: true,
-        criado: new Date().toLocaleDateString('pt-BR')
-      });
-      closeModal();
+    const submitUser = async () => {
+      if (!form.value.nome || !form.value.login || !form.value.senha || !form.value.perfil) {
+        alert('Preencha todos os campos obrigatórios.');
+        return;
+      }
+      try {
+        await usuariosService.criar({
+          nome: form.value.nome,
+          login: form.value.login,
+          senha: form.value.senha,
+          perfil: form.value.perfil
+        });
+        await fetchUsers();
+        closeModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao criar usuário.');
+      }
     };
 
     const openResetPassword = (user) => {
@@ -210,24 +276,77 @@ export default defineComponent({
       showResetModal.value = true;
     };
 
-    const submitPasswordReset = () => {
-      alert(`Senha do usuário ${selectedUser.value.nome} redefinida com sucesso para o protótipo.`);
-      showResetModal.value = false;
+    const openEditModal = (user) => {
+      editForm.value = {
+        id_usuario: user.id_usuario,
+        nome: user.nome,
+        login: user.login,
+        perfil: user.perfil
+      };
+      showEditModal.value = true;
     };
 
+    const closeEditModal = () => {
+      showEditModal.value = false;
+      editForm.value = { id_usuario: null, nome: '', login: '', perfil: '' };
+    };
+
+    const submitEditUser = async () => {
+      if (!editForm.value.nome || !editForm.value.login || !editForm.value.perfil) {
+        alert('Preencha todos os campos obrigatórios.');
+        return;
+      }
+      try {
+        await usuariosService.atualizar(editForm.value.id_usuario, {
+          nome: editForm.value.nome,
+          login: editForm.value.login,
+          perfil: editForm.value.perfil
+        });
+        await fetchUsers();
+        closeEditModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao atualizar usuário.');
+      }
+    };
+
+    const submitPasswordReset = async () => {
+      if (!newPassword.value) {
+        alert('Por favor, digite a nova senha.');
+        return;
+      }
+      try {
+        await usuariosService.atualizar(selectedUser.value.id_usuario, {
+          senha: newPassword.value
+        });
+        alert(`Senha do usuário ${selectedUser.value.nome} redefinida com sucesso.`);
+        showResetModal.value = false;
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao redefinir senha.');
+      }
+    };
+
+    onMounted(() => {
+      fetchUsers();
+    });
+
     return {
+      users,
       showAddModal,
       showResetModal,
+      showEditModal,
       selectedUser,
       newPassword,
       form,
-      users,
+      editForm,
       getProfileBadge,
       toggleStatus,
       closeModal,
       submitUser,
       openResetPassword,
-      submitPasswordReset
+      submitPasswordReset,
+      openEditModal,
+      closeEditModal,
+      submitEditUser,
     };
   }
 });

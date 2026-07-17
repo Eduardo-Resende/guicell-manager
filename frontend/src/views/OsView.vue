@@ -34,8 +34,7 @@
           <label>Técnico Responsável</label>
           <select v-model="filterTecnico" class="input-control select-control">
             <option value="">Todos os Técnicos</option>
-            <option value="Sandro Gouvea">Sandro Gouvea</option>
-            <option value="Eduardo Santana">Eduardo Santana</option>
+            <option v-for="t in tecnicos" :key="t.id_usuario" :value="t.id_usuario">{{ t.nome }}</option>
           </select>
         </div>
 
@@ -116,12 +115,23 @@
               <label>Cliente *</label>
               <select v-model="form.clienteId" required class="input-control select-control">
                 <option value="">Selecione o Cliente</option>
-                <option v-for="c in mockClients" :key="c.id" :value="c.id">{{ c.nome }} ({{ c.telefone }})</option>
+                <option v-for="c in mockClients" :key="c.id_cliente" :value="c.id_cliente">{{ c.nome }} ({{ c.telefone }})</option>
+              </select>
+            </div>
+
+            <!-- Device selection -->
+            <div class="form-group">
+              <label>Aparelho para Reparo *</label>
+              <select v-model="selectedDeviceOption" required class="input-control select-control">
+                <option value="novo">Cadastrar Novo Aparelho</option>
+                <option v-for="dev in clientDevices" :key="dev.id_aparelho" :value="dev.id_aparelho">
+                  {{ dev.marca }} {{ dev.modelo }} {{ dev.imei ? `(IMEI: ${dev.imei})` : '(Sem IMEI)' }}
+                </option>
               </select>
             </div>
 
             <!-- Device specs -->
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-3 gap-2" v-if="selectedDeviceOption === 'novo'">
               <div class="form-group">
                 <label>Marca *</label>
                 <input type="text" v-model="form.marca" required class="input-control" placeholder="Ex: Apple" />
@@ -146,8 +156,8 @@
               <div class="form-group">
                 <label>Técnico Responsável</label>
                 <select v-model="form.tecnico" class="input-control select-control">
-                  <option value="Sandro Gouvea">Sandro Gouvea</option>
-                  <option value="Eduardo Santana">Eduardo Santana</option>
+                  <option value="">Nenhum (Deixar em Aberto)</option>
+                  <option v-for="t in tecnicos" :key="t.id_usuario" :value="t.id_usuario">{{ t.nome }}</option>
                 </select>
               </div>
               <div class="form-group">
@@ -180,6 +190,15 @@
           <button class="close-btn" @click="showDetailModal = false">&times;</button>
         </div>
         <div class="modal-body">
+          <!-- Banner: OS finalizada (somente leitura) -->
+          <div v-if="isClosed" class="closed-banner mb-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="closed-icon">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <span>OS com status <strong>{{ selectedOS.originalStatus }}</strong> — somente leitura. Não é possível editar uma OS já finalizada.</span>
+          </div>
+
           <!-- OS Info tabs -->
           <div class="info-block card mb-4">
             <h4 class="mb-2">Informações Operacionais</h4>
@@ -204,11 +223,13 @@
           <div class="form-group mb-4">
             <label>Peças e Componentes Usados</label>
             <div class="parts-selector flex gap-2 mb-2">
-              <select v-model="newPartId" class="input-control select-control flex-1">
+              <select v-model="newPartId" class="input-control select-control flex-1" :disabled="isClosed">
                 <option value="">Adicionar Peça do Estoque...</option>
-                <option v-for="p in mockProducts" :key="p.id" :value="p.id">{{ p.descricao }} (Estoque: {{ p.qtd }} | {{ p.preco }})</option>
+                <option v-for="p in mockProducts" :key="p.id_produto" :value="p.id_produto">
+                  {{ p.descricao }} {{ p.codigo_barras ? `(EAN: ${p.codigo_barras})` : '' }} (Estoque: {{ p.estoque_atual }} | R$ {{ parseFloat(p.valor_venda).toFixed(2) }})
+                </option>
               </select>
-              <button type="button" class="btn btn-secondary" @click="addPart">Adicionar</button>
+              <button type="button" class="btn btn-secondary" @click="addPart" :disabled="isClosed">Adicionar</button>
             </div>
             <div class="table-responsive select-parts-table" v-if="selectedOS.parts && selectedOS.parts.length > 0">
               <table>
@@ -236,7 +257,9 @@
           <div class="flex justify-between items-center bg-dark p-3 rounded mb-4 border-style">
             <div>
               <span class="text-muted text-xs">MÃO DE OBRA:</span>
-              <div class="font-bold text-white">R$ {{ selectedOS.maoObra.toFixed(2) }}</div>
+              <div class="flex items-center gap-1 font-bold text-white">
+                 <input type="number" step="0.01" v-model.number="selectedOS.maoObra" class="input-control text-white" :disabled="isClosed" style="width: 100px; padding: 2px 5px; height: auto; background-color: transparent; border: 1px solid #444;" />
+              </div>
             </div>
             <div>
               <span class="text-muted text-xs">PEÇAS:</span>
@@ -252,7 +275,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="form-group m-0">
               <label>Atualizar Status</label>
-              <select v-model="selectedOS.status" class="input-control select-control">
+              <select v-model="selectedOS.status" class="input-control select-control" :disabled="isClosed">
                 <option value="Aguardando">Aguardando Diagnóstico</option>
                 <option value="Em Reparo">Em Reparo</option>
                 <option value="Aguardando Peça">Aguardando Peça</option>
@@ -263,7 +286,7 @@
             </div>
             <div class="form-group m-0">
               <label>Forma de Pagamento (para Fechamento)</label>
-              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="selectedOS.status !== 'Entregue'">
+              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed || selectedOS.status !== 'Entregue'">
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Cartão">Cartão de Crédito/Débito</option>
                 <option value="PIX">PIX</option>
@@ -280,8 +303,8 @@
             </svg>
             <span>Imprimir</span>
           </button>
-          <button type="button" class="btn btn-secondary" @click="showDetailModal = false">Cancelar</button>
-          <button type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
+          <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Cancelar' }}</button>
+          <button v-if="!isClosed" type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
         </div>
       </div>
     </div>
@@ -289,7 +312,8 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { osService, clientesService, produtosService, usuariosService, aparelhosService } from '../services/index.js';
 
 export default defineComponent({
   name: 'OsView',
@@ -302,66 +326,98 @@ export default defineComponent({
     const selectedOS = ref(null);
     const newPartId = ref('');
 
+    const ordens = ref([]);
+    const mockClients = ref([]);
+    const mockProducts = ref([]);
+    const tecnicos = ref([]);
+    const originalParts = ref([]);
+
+    // Computed: OS já finalizada (Entregue ou Cancelada) — bloqueia toda edição no modal
+    const isClosed = computed(() => {
+      if (!selectedOS.value) return false;
+      return ['Entregue', 'Cancelado'].includes(selectedOS.value.originalStatus);
+    });
+
     const form = ref({
       clienteId: '',
       marca: '',
       modelo: '',
       imei: '',
       defeito: '',
-      tecnico: 'Sandro Gouvea',
-      prazo: '2026-06-15',
+      tecnico: '',
+      prazo: '',
       valorOrcado: 120.00
     });
 
-    const mockClients = [
-      { id: 1, nome: 'Eduardo Santana', telefone: '(62) 98112-4455' },
-      { id: 2, nome: 'Mariana Costa', telefone: '(62) 99221-5060' },
-      { id: 3, nome: 'Carlos Roberto', telefone: '(62) 98554-1020' },
-      { id: 4, nome: 'Julia Almeida', telefone: '(62) 99182-3344' },
-      { id: 5, nome: 'Ricardo Alves', telefone: '(62) 98234-8899' }
-    ];
+    const clientDevices = ref([]);
+    const selectedDeviceOption = ref('novo');
 
-    const mockProducts = [
-      { id: 1, descricao: 'Tela Frontal iPhone 13 OLED', preco: 650.00, qtd: 4 },
-      { id: 2, descricao: 'Bateria Compatível S22', preco: 180.00, qtd: 2 },
-      { id: 3, descricao: 'Conector de Carga Tipo C', preco: 45.00, qtd: 15 },
-      { id: 4, descricao: 'Câmera Traseira iPhone 11', preco: 320.00, qtd: 1 }
-    ];
-
-    const ordens = ref([
-      { id: 1, numero: '2026-0014', cliente: 'Eduardo Santana', aparelho: 'iPhone 13', tecnico: 'Eduardo Santana', defeito: 'Tela Quebrada', status: 'Em Reparo', prazo: '12/06/2026', total: 'R$ 850,00', maoObra: 200.00, partsTotal: 650.00, parts: [{ id: 1, descricao: 'Tela Frontal iPhone 13 OLED', preco: 650.00 }], diagnostico: 'Dispositivo desmontado para análise, tela oled original danificada. Aguardando finalização da substituição.', formaPagamento: 'PIX' },
-      { id: 2, numero: '2026-0013', cliente: 'Mariana Costa', aparelho: 'Samsung Galaxy S22', tecnico: 'Sandro Gouvea', defeito: 'Bateria inchada, descarregando rápido', status: 'Aguardando', prazo: '13/06/2026', total: 'R$ 300,00', maoObra: 120.00, partsTotal: 180.00, parts: [{ id: 2, descricao: 'Bateria Compatível S22', preco: 180.00 }], diagnostico: 'Aguardando aprovação do orçamento de bateria original pelo cliente.', formaPagamento: 'Dinheiro' },
-      { id: 3, numero: '2026-0012', cliente: 'Carlos Roberto', aparelho: 'Motorola G200', tecnico: 'Sandro Gouvea', defeito: 'Conector de carga quebrado, não reconhece cabo', status: 'Concluído', prazo: '10/06/2026', total: 'R$ 145,00', maoObra: 100.00, partsTotal: 45.00, parts: [{ id: 3, descricao: 'Conector de Carga Tipo C', preco: 45.00 }], diagnostico: 'Conector substituído e soldado com sucesso. Passou no teste de estresse de carga. Pronto para entrega.', formaPagamento: 'Cartão' },
-      { id: 4, numero: '2026-0011', cliente: 'Julia Almeida', aparelho: 'iPhone 11', tecnico: 'Eduardo Santana', defeito: 'Câmera traseira trincada, imagem borrada', status: 'Aguardando Peça', prazo: '18/06/2026', total: 'R$ 470,00', maoObra: 150.00, partsTotal: 320.00, parts: [{ id: 4, descricao: 'Câmera Traseira iPhone 11', preco: 320.00 }], diagnostico: 'Aguardando chegada da câmera de reposição do distribuidor local.', formaPagamento: 'PIX' },
-      { id: 5, numero: '2026-0010', cliente: 'Ricardo Alves', aparelho: 'Xiaomi Poco X3', tecnico: 'Sandro Gouvea', defeito: 'Não liga, não dá sinal de carga', status: 'Cancelado', prazo: '09/06/2026', total: 'R$ 0,00', maoObra: 0.00, partsTotal: 0.00, parts: [], diagnostico: 'Placa-mãe do dispositivo em curto-circuito geral. Reparo inviável comercialmente. Cliente recusou orçamento.', formaPagamento: 'PIX' }
-    ]);
-
-    const filteredOS = computed(() => {
-      return ordens.value.filter(os => {
-        const matchesStatus = !filterStatus.value || os.status === filterStatus.value;
-        const matchesTecnico = !filterTecnico.value || os.tecnico === filterTecnico.value;
-        
-        let matchesSearch = true;
-        if (searchQuery.value) {
-          const query = searchQuery.value.toLowerCase();
-          matchesSearch = os.numero.toLowerCase().includes(query) || 
-                          os.aparelho.toLowerCase().includes(query) || 
-                          os.cliente.toLowerCase().includes(query);
+    watch(() => form.value.clienteId, async (newVal) => {
+      selectedDeviceOption.value = 'novo';
+      if (newVal) {
+        try {
+          const list = await aparelhosService.listarPorCliente(newVal);
+          clientDevices.value = list;
+        } catch (err) {
+          console.error('Erro ao buscar aparelhos do cliente:', err);
+          clientDevices.value = [];
         }
-        
-        return matchesStatus && matchesTecnico && matchesSearch;
-      });
+      } else {
+        clientDevices.value = [];
+      }
     });
 
-    const getBadgeClass = (status) => {
-      switch (status) {
-        case 'Aguardando': return 'badge-warning';
-        case 'Em Reparo': return 'badge-info';
-        case 'Aguardando Peça': return 'badge-danger';
-        case 'Concluído': return 'badge-success';
-        case 'Entregue': return 'badge-success';
-        case 'Cancelado': return 'badge-muted';
-        default: return 'badge-muted';
+    const fetchOS = async () => {
+      try {
+        const filtros = {};
+        if (filterStatus.value) filtros.status = filterStatus.value;
+        if (filterTecnico.value) filtros.id_tecnico = filterTecnico.value;
+        if (searchQuery.value) filtros.busca = searchQuery.value;
+        const data = await osService.listar(filtros);
+        ordens.value = data.map(os => {
+          const partsTotal = (os.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * it.quantidade, 0);
+          const totalVal = os.status === 'Entregue' ? parseFloat(os.valor_final) : (parseFloat(os.valor_orcado || 0) + partsTotal);
+          return {
+            id: os.id_os,
+            numero: os.numero_os,
+            cliente: os.cliente?.nome || 'N/A',
+            aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
+            tecnico: os.tecnico?.nome || 'Não atribuído',
+            prazo: os.prazo_estimado ? new Date(os.prazo_estimado + 'T12:00:00').toLocaleDateString('pt-BR') : 'Não definido',
+            status: os.status,
+            total: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            maoObra: parseFloat(os.valor_orcado || 0),
+            partsTotal: partsTotal,
+            parts: (os.itens || []).map(it => ({
+              id: it.id_produto,
+              descricao: it.produto?.descricao || 'Produto/Peça',
+              preco: parseFloat(it.valor_unitario)
+            })),
+            diagnostico: os.diagnostico || '',
+            formaPagamento: os.forma_pagamento || 'PIX',
+            id_cliente: os.id_cliente,
+            id_aparelho: os.id_aparelho,
+            id_tecnico: os.id_tecnico,
+            id_os: os.id_os
+          };
+        });
+      } catch (err) {
+        console.error('Erro ao buscar ordens de serviço:', err);
+      }
+    };
+
+    const loadFormDependencies = async () => {
+      try {
+        const [cList, pList, tList] = await Promise.all([
+          clientesService.listar(),
+          produtosService.listar({ tipo_uso: 'OS' }),
+          usuariosService.tecnicos()
+        ]);
+        mockClients.value = cList;
+        mockProducts.value = pList;
+        tecnicos.value = tList;
+      } catch (err) {
+        console.error('Erro ao carregar dependências do formulário:', err);
       }
     };
 
@@ -373,54 +429,94 @@ export default defineComponent({
         modelo: '',
         imei: '',
         defeito: '',
-        tecnico: 'Sandro Gouvea',
-        prazo: '2026-06-15',
+        tecnico: '',
+        prazo: '',
         valorOrcado: 120.00
       };
     };
 
-    const submitOS = () => {
-      const client = mockClients.find(c => c.id === parseInt(form.value.clienteId));
-      if (!client) return;
+    const submitOS = async () => {
+      if (selectedDeviceOption.value === 'novo') {
+        if (!form.value.clienteId || !form.value.marca || !form.value.modelo || !form.value.defeito) {
+          alert('Por favor, preencha todos os campos obrigatórios.');
+          return;
+        }
+      } else {
+        if (!form.value.clienteId || !form.value.defeito) {
+          alert('Por favor, preencha o cliente e o defeito relatado.');
+          return;
+        }
+      }
 
-      const numSeq = ordens.value.length + 10;
-      
-      ordens.value.unshift({
-        id: Date.now(),
-        numero: `2026-00${numSeq}`,
-        cliente: client.nome,
-        aparelho: `${form.value.marca} ${form.value.modelo}`,
-        tecnico: form.value.tecnico,
-        defeito: form.value.defeito,
-        status: 'Aguardando',
-        prazo: new Date(form.value.prazo).toLocaleDateString('pt-BR'),
-        total: `R$ ${form.value.valorOrcado.toFixed(2)}`,
-        maoObra: parseFloat(form.value.valorOrcado),
-        partsTotal: 0,
-        parts: [],
-        diagnostico: '',
-        formaPagamento: 'PIX'
-      });
+      try {
+        let aparelhoId;
+        if (selectedDeviceOption.value === 'novo') {
+          // 1. Criar o aparelho (ou buscar se já existe via backend)
+          const aparelho = await aparelhosService.criar({
+            id_cliente: form.value.clienteId,
+            marca: form.value.marca,
+            modelo: form.value.modelo,
+            imei: form.value.imei,
+            observacoes: 'Cadastrado automaticamente na abertura da OS'
+          });
+          aparelhoId = aparelho.id_aparelho;
+        } else {
+          aparelhoId = parseInt(selectedDeviceOption.value);
+        }
 
-      closeAddModal();
+        // 2. Criar a OS vinculada ao aparelho
+        await osService.criar({
+          id_cliente: form.value.clienteId,
+          id_aparelho: aparelhoId,
+          id_tecnico: form.value.tecnico || null,
+          defeito_relatado: form.value.defeito,
+          valor_orcado: form.value.valorOrcado,
+          prazo_estimado: form.value.prazo || null
+        });
+
+        await fetchOS();
+        closeAddModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao abrir ordem de serviço.');
+      }
     };
 
-    const viewDetail = (os) => {
-      selectedOS.value = { ...os };
-      showDetailModal.value = true;
+    const viewDetail = async (os) => {
+      try {
+        // Carrega dados completos da OS (incluindo itens/peças)
+        const detailedOS = await osService.buscarPorId(os.id_os);
+        selectedOS.value = {
+          ...os,
+          status: detailedOS.status || os.status,
+          originalStatus: detailedOS.status || os.status, // Status real do banco (imutável durante o modal)
+          maoObra: parseFloat(detailedOS.valor_orcado || os.maoObra || 0),
+          formaPagamento: detailedOS.forma_pagamento || os.formaPagamento || 'PIX',
+          diagnostico: detailedOS.diagnostico || '',
+          parts: (detailedOS.itens || []).map(it => ({
+            id: it.id_produto,
+            descricao: it.produto?.descricao || 'Produto/Peça',
+            preco: parseFloat(it.valor_unitario)
+          })),
+          partsTotal: (detailedOS.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * it.quantidade, 0)
+        };
+        originalParts.value = [...selectedOS.value.parts];
+        showDetailModal.value = true;
+      } catch (err) {
+        alert('Erro ao carregar detalhes da ordem de serviço.');
+      }
     };
 
     const addPart = () => {
       if (!newPartId.value) return;
-      const part = mockProducts.find(p => p.id === parseInt(newPartId.value));
+      const part = mockProducts.value.find(p => p.id_produto === parseInt(newPartId.value));
       if (part) {
         if (!selectedOS.value.parts) selectedOS.value.parts = [];
         selectedOS.value.parts.push({
-          id: part.id,
+          id: part.id_produto,
           descricao: part.descricao,
-          preco: part.preco
+          preco: parseFloat(part.valor_venda)
         });
-        selectedOS.value.partsTotal += part.preco;
+        selectedOS.value.partsTotal += parseFloat(part.valor_venda);
         newPartId.value = '';
       }
     };
@@ -431,20 +527,122 @@ export default defineComponent({
       selectedOS.value.parts.splice(index, 1);
     };
 
-    const saveOSChanges = () => {
-      const idx = ordens.value.findIndex(o => o.id === selectedOS.value.id);
-      if (idx !== -1) {
-        const grandTotal = selectedOS.value.maoObra + selectedOS.value.partsTotal;
-        selectedOS.value.total = `R$ ${grandTotal.toFixed(2)}`;
-        
-        ordens.value[idx] = { ...selectedOS.value };
+    const saveOSChanges = async () => {
+      // Bloquear edição de OS já finalizada (Entregue ou Cancelada)
+      if (isClosed.value) {
+        alert('Esta OS já está finalizada e não pode ser alterada.');
+        return;
       }
-      showDetailModal.value = false;
+
+      try {
+        const id = selectedOS.value.id_os;
+        
+        // Se mudou o status para 'Entregue', realiza o fluxo de fechamento/faturamento
+        if (selectedOS.value.status === 'Entregue') {
+          await osService.fechar(id, {
+            valor_final: selectedOS.value.maoObra + selectedOS.value.partsTotal,
+            forma_pagamento: selectedOS.value.formaPagamento,
+            itens: selectedOS.value.parts.map(p => ({
+              id_produto: p.id,
+              quantidade: 1,
+              valor_unitario: p.preco
+            }))
+          });
+        } else {
+          // Atualiza status, diagnóstico técnico e a lista de peças/itens
+          await osService.atualizarStatus(
+            id,
+            selectedOS.value.status,
+            selectedOS.value.diagnostico,
+            selectedOS.value.parts.map(p => ({
+              id_produto: p.id,
+              quantidade: 1,
+              valor_unitario: p.preco
+            })),
+            selectedOS.value.maoObra
+          );
+        }
+
+        // Registrar logs de movimentações em localStorage
+        const storedLogs = localStorage.getItem('guicell_movement_logs');
+        const logs = storedLogs ? JSON.parse(storedLogs) : [];
+        const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
+        const tecnicoNome = userObj ? userObj.nome : 'Operador';
+
+        // 1. Contar quantidades originais
+        const originalCounts = {};
+        originalParts.value.forEach(p => {
+          originalCounts[p.id] = (originalCounts[p.id] || 0) + 1;
+        });
+
+        // 2. Contar quantidades novas
+        const newCounts = {};
+        selectedOS.value.parts.forEach(p => {
+          newCounts[p.id] = (newCounts[p.id] || 0) + 1;
+        });
+
+        // 3. Gerar logs baseados na diferença
+        const allIds = new Set([...Object.keys(originalCounts), ...Object.keys(newCounts)]);
+        let logsUpdated = false;
+
+        allIds.forEach(idStr => {
+          const id = parseInt(idStr);
+          const oldQtd = originalCounts[id] || 0;
+          const newQtd = newCounts[id] || 0;
+          const diff = newQtd - oldQtd;
+
+          if (diff !== 0) {
+            const prodDesc = selectedOS.value.parts.find(p => p.id === id)?.descricao || originalParts.value.find(p => p.id === id)?.descricao || 'Peça Desconhecida';
+            
+            logs.unshift({
+              id: Date.now() + Math.random(),
+              data: new Date().toLocaleString('pt-BR'),
+              produto: prodDesc,
+              tipo: diff > 0 ? 'Saída' : 'Entrada',
+              qtd: Math.abs(diff),
+              origem: diff > 0 ? `OS #${selectedOS.value.numero}` : `OS #${selectedOS.value.numero} (Removido)`,
+              tecnico: tecnicoNome
+            });
+            logsUpdated = true;
+          }
+        });
+
+        if (logsUpdated) {
+          localStorage.setItem('guicell_movement_logs', JSON.stringify(logs));
+        }
+
+        await fetchOS();
+        showDetailModal.value = false;
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao salvar alterações da OS.');
+      }
     };
 
     const imprimirComprovante = (os) => {
       alert(`Simulação de Impressão de Comprovante da OS #${os.numero} gerada com sucesso.`);
     };
+
+    const getBadgeClass = (status) => {
+      switch (status) {
+        case 'Aguardando': return 'badge-warning';
+        case 'Em Reparo': return 'badge-info';
+        case 'Aguardando Peça':
+        case 'Aguard. Peça': return 'badge-danger';
+        case 'Concluído': return 'badge-success';
+        case 'Entregue': return 'badge-success';
+        case 'Cancelado': return 'badge-muted';
+        default: return 'badge-muted';
+      }
+    };
+
+    watch([filterStatus, filterTecnico, searchQuery], () => {
+      fetchOS();
+    });
+
+    onMounted(() => {
+      fetchOS();
+      loadFormDependencies();
+    });
 
     return {
       searchQuery,
@@ -457,7 +655,9 @@ export default defineComponent({
       form,
       mockClients,
       mockProducts,
-      filteredOS,
+      tecnicos,
+      ordens,
+      filteredOS: ordens, // Use direct list from API
       getBadgeClass,
       closeAddModal,
       submitOS,
@@ -465,7 +665,11 @@ export default defineComponent({
       addPart,
       removePart,
       saveOSChanges,
-      imprimirComprovante
+      imprimirComprovante,
+      fetchOS,
+      clientDevices,
+      selectedDeviceOption,
+      isClosed
     };
   }
 });
@@ -583,5 +787,24 @@ export default defineComponent({
     grid-template-columns: 1fr;
     gap: 12px;
   }
+}
+
+.closed-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: rgba(250, 180, 50, 0.08);
+  border: 1px solid rgba(250, 180, 50, 0.35);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #f4a429;
+  font-size: 0.875rem;
+}
+
+.closed-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #f4a429;
 }
 </style>

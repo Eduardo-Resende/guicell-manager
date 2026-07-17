@@ -2,7 +2,9 @@
 
 > **Sistema de Gestão de Assistência Técnica de Celulares com Controle de Estoque, Vendas e Caixa**
 
-Este repositório contém a implementação do **Guicell Manager**, um sistema ERP integrado desenvolvido como projeto de Trabalho de Conclusão de Curso (TCC) em Engenharia de Software. O sistema foi projetado para modernizar a gestão operacional e financeira de assistências técnicas de celulares, substituindo controles manuais por uma plataforma web centralizada, ágil e segura.
+Este repositório contém a implementação do **Guicell Manager**, um sistema ERP integrado desenvolvido como projeto de Trabalho de Conclusão de Curso (TCC) em Sistemas de Informação pelos autores **Eduardo Santana Resende** e **Emilly Gabrielly Pereira da Silva**.
+
+O sistema foi projetado para modernizar a gestão operacional e financeira de assistências técnicas de celulares, fornecendo uma plataforma web integrada com banco de dados relacional para persistência de dados e controle de segurança através de perfis de usuário.
 
 ---
 
@@ -10,36 +12,9 @@ Este repositório contém a implementação do **Guicell Manager**, um sistema E
 
 O objetivo principal é solucionar os gargalos operacionais mais comuns em assistências técnicas de smartphones (como perda de informações, furos de estoque e inconsistências financeiras), fornecendo ferramentas integradas para:
 * **Controle Operacional:** Acompanhamento ponta a ponta de ordens de serviço.
-* **Controle de Inventário:** Gestão integrada de peças e acessórios.
-* **Controle Financeiro:** Gestão direta de vendas de balcão e fluxo de caixa diário.
-
----
-
-## 🚀 Funcionalidades & Módulos
-
-O sistema divide-se nos seguintes módulos principais:
-
-### 👥 1. Cadastro de Clientes & Dispositivos
-* Registro detalhado de clientes (nome, telefone, e-mail).
-* Cadastro e vinculação dos aparelhos dos clientes, incluindo marca, modelo e identificação por IMEI.
-
-### 🛠️ 2. Ordens de Serviço (O.S.)
-* Abertura e controle de fluxo completo de ordens de serviço.
-* Atualização em tempo real do status do reparo (Diagnóstico, Aprovação, Em Conserto, Pronto para Entrega).
-* Vinculação de peças e insumos utilizados do estoque e cálculo automático da mão de obra.
-
-### 📦 3. Controle de Estoque (Produtos & Peças)
-* Cadastro de produtos (descrição, quantidade em estoque, valor de custo e venda).
-* Inventário e controle automatizado de entradas e saídas.
-
-### 💰 4. Frente de Caixa & Vendas
-* Registro rápido de vendas de acessórios (capas, películas) e peças.
-* Registro de movimentações financeiras (entradas de serviços/vendas e saídas de despesas).
-* Acompanhamento do fechamento de caixa diário.
-
-### 📊 5. Relatórios & Controle de Usuários
-* Geração de relatórios gerenciais para tomada de decisão.
-* Níveis de acesso diferenciados para cada tipo de usuário (**Atendente**, **Técnico** e **Gerente**).
+* **Controle de Inventário:** Gestão integrada de peças e acessórios, com débitos automáticos ao faturar ordens de serviço ou registrar vendas.
+* **Controle Financeiro:** Gestão direta de vendas de balcão e fluxo de caixa diário (lançamentos manuais e automáticos).
+* **Níveis de Acesso:** Separação de privilégios para **Atendente**, **Técnico** e **Gerente**.
 
 ---
 
@@ -47,11 +22,17 @@ O sistema divide-se nos seguintes módulos principais:
 
 ### Frontend
 * **[Vue 3](https://vuejs.org/)** – Framework progressivo em Javascript para construção de interfaces reativas e modulares.
-* **[Vite](https://vitejs.dev/)** – Ferramenta de build de última geração para desenvolvimento rápido.
-* **CSS Local / Vanilla** – Design responsivo e customizado.
+* **[Vue Router 4](https://router.vuejs.org/)** – Gerenciamento de rotas com Guards para autenticação e verificação de perfil de acesso.
+* **[Axios](https://axios-http.com/)** – Cliente HTTP para integração de dados com o backend.
+* **CSS Local / Vanilla** – Design responsivo, moderno e customizado.
 
-### Banco de Dados (Planejado)
-* **[MySQL](https://www.mysql.com/)** – Banco de dados relacional para persistência íntegra e segura das informações.
+### Backend
+* **[Node.js](https://nodejs.org/) & [Express](https://expressjs.com/)** – Ambiente de execução e framework para a construção da API RESTful.
+* **[Sequelize ORM](https://sequelize.org/)** – Ferramenta para mapeamento objeto-relacional e gerenciamento de transações, migrações e seeds do banco de dados.
+* **[JWT (JSON Web Token)](https://jwt.io/) & [BcryptJS](https://github.com/dcodeIO/bcrypt.js)** – Mecanismos para criptografia de senhas e autenticação segura baseada em tokens com expiração.
+
+### Banco de Dados
+* **[MySQL 8.0](https://www.mysql.com/)** – Banco de dados relacional robusto com chaves estrangeiras, restrições referenciais (`RESTRICT`/`CASCADE`) e mapeamento íntegro dos modelos do TCC.
 
 ---
 
@@ -59,12 +40,33 @@ O sistema divide-se nos seguintes módulos principais:
 
 ```bash
 guicell/
-├── frontend/          # Código-fonte da aplicação web (Vue 3 + Vite)
-│   ├── src/           # Componentes, views e assets
-│   ├── public/        # Arquivos estáticos
-│   ├── package.json   # Dependências e scripts npm
-│   └── vite.config.js # Configuração do Vite
-└── .gitignore         # Configurações de arquivos ignorados no controle de versão
+├── backend/                  # API RESTful (Node.js + Express + Sequelize)
+│   ├── src/
+│   │   ├── config/           # Configurações de banco de dados (database.js)
+│   │   ├── controllers/      # Controladores de rotas
+│   │   ├── middlewares/      # Interceptores (autenticação e autorização por perfil)
+│   │   ├── migrations/       # Migrations para estruturação das tabelas
+│   │   ├── models/           # Mapeamento de tabelas com Sequelize
+│   │   ├── routes/           # Rotas Express organizadas por domínio
+│   │   ├── seeders/          # Carga de dados iniciais (usuários e produtos)
+│   │   ├── app.js            # Configuração do Express (Helmet, CORS, Parsing)
+│   │   └── server.js         # Inicialização do servidor e checagem de banco
+│   ├── .env.example          # Exemplo de variáveis de ambiente do backend
+│   ├── .sequelizerc          # Caminhos de mapeamento para o CLI do Sequelize
+│   └── package.json          # Dependências do backend (Sequelize, Express, etc)
+├── frontend/                 # Aplicação Web (Vue 3 + Vite)
+│   ├── src/
+│   │   ├── assets/           # Imagens e logotipos
+│   │   ├── components/       # Componentes reutilizáveis (ex: Sidebar.vue)
+│   │   ├── router/           # Configuração do Vue Router com Guards JWT
+│   │   ├── services/         # Consumo da API através de instâncias Axios
+│   │   ├── views/            # Telas da aplicação (Dashboard, OS, Clientes, etc)
+│   │   ├── App.vue           # Componente raiz do aplicativo
+│   │   ├── main.js           # Ponto de entrada do frontend Vue
+│   │   └── style.css         # Design System e variáveis de estilo global
+│   ├── package.json          # Dependências do frontend
+│   └── vite.config.js        # Configurações do Vite
+└── .gitignore                # Regras de arquivos ignorados no Git (inclui /tcc/ e .env)
 ```
 
 > 📌 *Nota: A pasta `/tcc`, que contém os documentos de planejamento acadêmico, modelagens UML e protótipos iniciais, está ignorada no repositório via `.gitignore` conforme as diretrizes de desenvolvimento.*
@@ -74,35 +76,75 @@ guicell/
 ## 💻 Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-Certifique-se de ter instalado em sua máquina:
-* [Node.js](https://nodejs.org/) (versão LTS recomendada)
-* [npm](https://www.npmjs.com/) ou [yarn](https://yarnpkg.com/)
+Certifique-se de ter instalado:
+* **Node.js** (versão 20 LTS recomendada)
+* **MySQL 8.0** ativo localmente (porta padrão `3306`)
 
-### Instruções
+---
 
-1. **Clone o repositório:**
+### Passo 1: Configurar o Banco de Dados (Backend)
+
+1. Navegue até a pasta do backend:
    ```bash
-   git clone https://github.com/seu-usuario/guicell.git
-   cd guicell
+   cd backend
    ```
 
-2. **Acesse o diretório do frontend:**
-   ```bash
-   cd frontend
-   ```
-
-3. **Instale as dependências:**
+2. Instale as dependências de backend:
    ```bash
    npm install
    ```
 
-4. **Inicie o servidor de desenvolvimento:**
+3. Configure o arquivo de variáveis de ambiente:
+   * Copie o arquivo `.env.example` para `.env`:
+     ```bash
+     cp .env.example .env
+     ```
+   * Abra o arquivo `.env` e configure as credenciais do seu MySQL local (`DB_USER`, `DB_PASS`, `DB_NAME`).
+
+4. Crie o banco de dados e execute as migrações:
+   ```bash
+   npx sequelize-cli db:create
+   npx sequelize-cli db:migrate
+   ```
+
+5. Carregue os dados padrões de demonstração (seeders):
+   ```bash
+   npx sequelize-cli db:seed:all
+   ```
+   *Isso criará 3 usuários padrões para testes com a senha provisória `guicell123`:*
+   * **Gerente:** login `gerente`
+   * **Atendente:** login `atendente`
+   * **Técnico:** login `tecnico`
+   * Também criará alguns produtos demonstrativos em estoque.
+
+6. Inicie o servidor do backend:
+   ```bash
+   npm run dev
+   ```
+   *O backend estará rodando em `http://localhost:3001`.*
+
+---
+
+### Passo 2: Configurar a Interface (Frontend)
+
+1. Abra um novo terminal na raiz do projeto e navegue até a pasta do frontend:
+   ```bash
+   cd frontend
+   ```
+
+2. Instale as dependências de frontend:
+   ```bash
+   npm install
+   ```
+
+3. Inicie o servidor de desenvolvimento:
    ```bash
    npm run dev
    ```
 
-5. **Acesse o sistema:**
-   Abra o navegador e acesse o endereço fornecido no terminal (geralmente `http://localhost:5173`).
+4. Acesse o sistema:
+   * Abra o navegador e acesse: `http://localhost:5173`
+   * Faça login usando um dos usuários criados no seeder (ex: usuário `gerente` e senha `guicell123`).
 
 ---
 

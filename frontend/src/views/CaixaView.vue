@@ -29,28 +29,28 @@
       <div class="card balance-card">
         <span class="balance-label">Abertura de Caixa</span>
         <span class="balance-value text-white">R$ 150,00</span>
-        <span class="balance-meta text-muted">Aberto às 08:00</span>
+        <span class="balance-meta text-muted">Fundo de troco fixo</span>
       </div>
 
       <!-- Card: Entradas -->
       <div class="card balance-card border-success">
         <span class="balance-label">Total Entradas (+)</span>
-        <span class="balance-value text-success">R$ 1.155,50</span>
+        <span class="balance-value text-success">R$ {{ resumo.entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
         <span class="balance-meta text-muted">Vendas e Serviços (OS)</span>
       </div>
 
       <!-- Card: Saídas -->
       <div class="card balance-card border-danger">
         <span class="balance-label">Total Saídas (-)</span>
-        <span class="balance-value text-danger">R$ 55,00</span>
+        <span class="balance-value text-danger">R$ {{ resumo.saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
         <span class="balance-meta text-muted">Despesas operacionais</span>
       </div>
 
       <!-- Card: Saldo Líquido -->
       <div class="card balance-card border-primary">
-        <span class="balance-label">Saldo Atual</span>
-        <span class="balance-value text-primary font-bold">R$ 1.250,50</span>
-        <span class="balance-meta text-muted">Disponível em caixa</span>
+        <span class="balance-label">Saldo em Caixa</span>
+        <span class="balance-value text-primary font-bold">R$ {{ (150.00 + resumo.entradas - resumo.saidas).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
+        <span class="balance-meta text-muted">Abertura + Entradas - Saídas</span>
       </div>
     </div>
 
@@ -143,12 +143,15 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, onMounted } from 'vue';
+import { caixaService } from '../services/index.js';
 
 export default defineComponent({
   name: 'CaixaView',
   setup() {
     const showAddModal = ref(false);
+    const logs = ref([]);
+    const resumo = ref({ entradas: 0, saidas: 0 });
 
     const form = ref({
       tipo: 'entrada',
@@ -157,14 +160,26 @@ export default defineComponent({
       categoria: 'Outros'
     });
 
-    const logs = ref([
-      { id: 1, hora: '10:45', descricao: 'Venda de Acessórios PDV #1002', categoria: 'Vendas', tipo: 'entrada', valor: 55.00, operador: 'Gerente Guicell' },
-      { id: 2, hora: '10:15', descricao: 'Abertura/Fechamento OS #2026-0014 - Eduardo Santana', categoria: 'Serviços', tipo: 'entrada', valor: 850.00, operador: 'Gerente Guicell' },
-      { id: 3, hora: '09:30', descricao: 'Fechamento OS #2026-0012 - Carlos Roberto', categoria: 'Serviços', tipo: 'entrada', valor: 145.00, operador: 'Gerente Guicell' },
-      { id: 4, hora: '09:00', descricao: 'Venda de Acessórios PDV #1001', categoria: 'Vendas', tipo: 'entrada', valor: 189.00, operador: 'Gerente Guicell' },
-      { id: 5, hora: '08:30', descricao: 'Compra emergencial de fita isolante kapton', categoria: 'Fornecedores', tipo: 'saida', valor: 35.00, operador: 'Sandro Gouvea' },
-      { id: 6, hora: '08:15', descricao: 'Lanche da manhã técnicos', categoria: 'Outros', tipo: 'saida', valor: 20.00, operador: 'Gerente Guicell' }
-    ]);
+    const fetchCaixa = async () => {
+      try {
+        const [resumoData, listData] = await Promise.all([
+          caixaService.resumoDia(),
+          caixaService.listar()
+        ]);
+        resumo.value = resumoData;
+        logs.value = listData.map(log => ({
+          id: log.id_caixa,
+          hora: new Date(log.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          descricao: log.descricao,
+          categoria: log.categoria || 'Geral',
+          tipo: log.tipo,
+          valor: parseFloat(log.valor),
+          operador: log.usuario?.nome || 'Operador'
+        }));
+      } catch (err) {
+        console.error('Erro ao carregar dados do caixa:', err);
+      }
+    };
 
     const sortedLogs = computed(() => {
       return [...logs.value].sort((a, b) => b.id - a.id);
@@ -175,30 +190,37 @@ export default defineComponent({
       form.value = { tipo: 'entrada', valor: '', descricao: '', categoria: 'Outros' };
     };
 
-    const submitMovimentacao = () => {
-      const now = new Date();
-      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-      logs.value.unshift({
-        id: Date.now(),
-        hora: timeStr,
-        descricao: form.value.descricao,
-        categoria: form.value.categoria,
-        tipo: form.value.tipo,
-        valor: parseFloat(form.value.valor),
-        operador: 'Gerente Guicell'
-      });
-
-      closeModal();
+    const submitMovimentacao = async () => {
+      if (!form.value.valor || !form.value.descricao) {
+        alert('Por favor, preencha valor e descrição.');
+        return;
+      }
+      try {
+        await caixaService.registrarManual({
+          tipo: form.value.tipo,
+          valor: parseFloat(form.value.valor),
+          descricao: form.value.descricao,
+          categoria: form.value.categoria
+        });
+        await fetchCaixa();
+        closeModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao registrar movimentação.');
+      }
     };
 
     const fecharCaixa = () => {
       alert('Caixa fechado com sucesso! Relatório gerencial de fechamento enviado ao e-mail cadastrado do gerente.');
     };
 
+    onMounted(() => {
+      fetchCaixa();
+    });
+
     return {
       showAddModal,
       form,
+      resumo,
       sortedLogs,
       closeModal,
       submitMovimentacao,

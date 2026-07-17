@@ -12,7 +12,7 @@
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        <span>Hoje, 10 de Junho de 2026</span>
+        <span>Hoje, {{ dataFormatada }}</span>
       </div>
     </div>
 
@@ -22,13 +22,9 @@
       <div class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">OS em Aberto</span>
-          <span class="metric-value">14</span>
+          <span class="metric-value">{{ osAbertas }}</span>
           <span class="metric-change positive">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="arrow-up">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            +12% vs. ontem
+            Ativas no sistema
           </span>
         </div>
         <div class="metric-icon-wrapper text-primary">
@@ -45,13 +41,9 @@
       <div class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">OS Concluídas Hoje</span>
-          <span class="metric-value">8</span>
+          <span class="metric-value">{{ osConcluidas }}</span>
           <span class="metric-change positive">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="arrow-up">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            +25% vs. ontem
+            Concluídas/Entregues
           </span>
         </div>
         <div class="metric-icon-wrapper text-success">
@@ -66,13 +58,9 @@
       <div class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">Caixa do Dia</span>
-          <span class="metric-value">R$ 1.250,50</span>
+          <span class="metric-value">R$ {{ saldoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
           <span class="metric-change positive">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="arrow-up">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            +8.3% vs. média
+            Saldo de hoje
           </span>
         </div>
         <div class="metric-icon-wrapper text-info">
@@ -84,15 +72,15 @@
       </div>
 
       <!-- Card 4: Estoque Mínimo -->
-      <div class="card metric-card highlight-danger">
+      <div class="card metric-card" :class="{ 'highlight-danger': prodEstoqueMinimo > 0 }">
         <div class="metric-info">
           <span class="metric-label">Estoque Crítico</span>
-          <span class="metric-value text-danger">3</span>
-          <span class="metric-change text-danger font-semibold">
-            Requer reposição urgente
+          <span class="metric-value" :class="{ 'text-danger': prodEstoqueMinimo > 0 }">{{ prodEstoqueMinimo }}</span>
+          <span class="metric-change" :class="{ 'text-danger font-semibold': prodEstoqueMinimo > 0 }">
+            {{ prodEstoqueMinimo > 0 ? 'Requer reposição urgente' : 'Estoque regularizado' }}
           </span>
         </div>
-        <div class="metric-icon-wrapper text-danger">
+        <div class="metric-icon-wrapper" :class="prodEstoqueMinimo > 0 ? 'text-danger' : 'text-muted'">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="metric-icon">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
@@ -161,34 +149,44 @@
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, onMounted } from 'vue';
+import { osService } from '../services/index.js';
 
 export default defineComponent({
   name: 'DashboardView',
   emits: ['change-view'],
   setup() {
+    const dataFormatada = ref('');
+    const osAbertas = ref(0);
+    const osConcluidas = ref(0);
+    const saldoDia = ref(0);
+    const prodEstoqueMinimo = ref(0);
+    const recentOS = ref([]);
+
     const statusBars = ref([
-      { label: 'Aguardando', value: 4, percentage: 40, color: 'var(--warning)' },
-      { label: 'Em Reparo', value: 6, percentage: 60, color: 'var(--info)' },
-      { label: 'Aguard. Peça', value: 3, percentage: 30, color: '#ec4899' },
-      { label: 'Concluído', value: 8, percentage: 80, color: 'var(--success)' },
-      { label: 'Entregue', value: 10, percentage: 100, color: 'var(--primary)' },
-      { label: 'Cancelado', value: 2, percentage: 20, color: 'var(--danger)' }
+      { label: 'Aguardando', value: 0, percentage: 0, color: 'var(--warning)' },
+      { label: 'Em Reparo', value: 0, percentage: 0, color: 'var(--info)' },
+      { label: 'Aguard. Peça', value: 0, percentage: 0, color: '#ec4899' },
+      { label: 'Concluído', value: 0, percentage: 0, color: 'var(--success)' },
+      { label: 'Entregue', value: 0, percentage: 0, color: 'var(--primary)' },
+      { label: 'Cancelado', value: 0, percentage: 0, color: 'var(--danger)' }
     ]);
 
-    const recentOS = ref([
-      { id: 1, numero: '2026-0014', cliente: 'Eduardo Santana', aparelho: 'iPhone 13 - Tela Quebrada', status: 'Em Reparo', data: '10/06/2026 10:15' },
-      { id: 2, numero: '2026-0013', cliente: 'Mariana Costa', aparelho: 'Samsung Galaxy S22 - Bateria', status: 'Aguardando', data: '10/06/2026 09:30' },
-      { id: 3, numero: '2026-0012', cliente: 'Carlos Roberto', aparelho: 'Motorola G200 - Conector Carga', status: 'Concluído', data: '09/06/2026 17:45' },
-      { id: 4, numero: '2026-0011', cliente: 'Julia Almeida', aparelho: 'iPhone 11 - Câmera Traseira', status: 'Aguard. Peça', data: '09/06/2026 15:20' },
-      { id: 5, numero: '2026-0010', cliente: 'Ricardo Alves', aparelho: 'Xiaomi Poco X3 - Placa Mãe', status: 'Cancelado', data: '09/06/2026 11:00' }
-    ]);
+    const formatarDataHoje = () => {
+      const meses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
+      const hoje = new Date();
+      return `${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`;
+    };
 
     const getBadgeClass = (status) => {
       switch (status) {
         case 'Aguardando': return 'badge-warning';
         case 'Em Reparo': return 'badge-info';
-        case 'Aguard. Peça': return 'badge-danger'; // Pink highlight
+        case 'Aguard. Peça':
+        case 'Aguardando Peça': return 'badge-danger';
         case 'Concluído': return 'badge-success';
         case 'Entregue': return 'badge-success';
         case 'Cancelado': return 'badge-muted';
@@ -196,7 +194,70 @@ export default defineComponent({
       }
     };
 
+    const carregarDados = async () => {
+      try {
+        const data = await osService.dashboard();
+        osAbertas.value = data.osAbertas || 0;
+        osConcluidas.value = data.osConcluidas || 0;
+        saldoDia.value = data.saldoDia || 0;
+        prodEstoqueMinimo.value = data.prodEstoqueMinimo || 0;
+
+        // Processa últimas OS
+        recentOS.value = (data.ultimasOS || []).map(os => ({
+          id: os.id_os,
+          numero: os.numero_os,
+          cliente: os.cliente?.nome || 'N/A',
+          aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
+          status: os.status,
+          data: new Date(os.data_abertura).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+        }));
+
+        // Processa gráficos de status
+        const statusMap = {
+          'Aguardando': 'Aguardando',
+          'Em Reparo': 'Em Reparo',
+          'Aguardando Peça': 'Aguard. Peça',
+          'Concluído': 'Concluído',
+          'Entregue': 'Entregue',
+          'Cancelado': 'Cancelado'
+        };
+
+        const counts = {};
+        (data.statusCounts || []).forEach(sc => {
+          const mappedLabel = statusMap[sc.status];
+          if (mappedLabel) {
+            counts[mappedLabel] = (counts[mappedLabel] || 0) + parseInt(sc.count);
+          }
+        });
+
+        // Encontra o valor máximo para percentual relativo
+        const maxVal = Math.max(...Object.values(counts).concat(1));
+
+        statusBars.value = statusBars.value.map(bar => {
+          const val = counts[bar.label] || 0;
+          return {
+            ...bar,
+            value: val,
+            percentage: (val / maxVal) * 100
+          };
+        });
+
+      } catch (err) {
+        console.error('Erro ao carregar dashboard:', err);
+      }
+    };
+
+    onMounted(() => {
+      dataFormatada.value = formatarDataHoje();
+      carregarDados();
+    });
+
     return {
+      dataFormatada,
+      osAbertas,
+      osConcluidas,
+      saldoDia,
+      prodEstoqueMinimo,
       statusBars,
       recentOS,
       getBadgeClass

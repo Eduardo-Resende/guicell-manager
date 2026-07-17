@@ -25,10 +25,10 @@
 
     <div class="user-footer">
       <div class="user-info">
-        <div class="user-avatar">G</div>
+        <div class="user-avatar">{{ usuario.nome ? usuario.nome.charAt(0).toUpperCase() : 'O' }}</div>
         <div class="user-details">
-          <span class="user-name">Gerente Guicell</span>
-          <span class="user-role">Gerente Geral</span>
+          <span class="user-name">{{ usuario.nome || 'Operador' }}</span>
+          <span class="user-role">{{ usuario.perfil || 'Atendente' }}</span>
         </div>
       </div>
       <button class="logout-btn" @click="$emit('logout')">
@@ -44,7 +44,7 @@
 </template>
 
 <script>
-import { defineComponent, markRaw } from 'vue';
+import { defineComponent, ref, computed, onMounted, markRaw } from 'vue';
 
 // Small inline icon components using SVGs to prevent dependency issues
 const DashboardIcon = {
@@ -141,18 +141,36 @@ export default defineComponent({
   },
   emits: ['change-view', 'logout'],
   setup() {
-    const menuItems = [
-      { view: 'dashboard', label: 'Dashboard', icon: markRaw(DashboardIcon) },
-      { view: 'clientes', label: 'Clientes', icon: markRaw(ClientesIcon) },
-      { view: 'os', label: 'Ordens de Serviço', icon: markRaw(OsIcon) },
-      { view: 'estoque', label: 'Estoque', icon: markRaw(EstoqueIcon) },
-      { view: 'vendas', label: 'Vendas (PDV)', icon: markRaw(VendasIcon) },
-      { view: 'caixa', label: 'Caixa', icon: markRaw(CaixaIcon) },
-      { view: 'relatorios', label: 'Relatórios', icon: markRaw(RelatoriosIcon) },
-      { view: 'usuarios', label: 'Usuários', icon: markRaw(UsuariosIcon) },
-    ];
+    const usuario = ref({ nome: 'Operador', perfil: 'Atendente' });
+
+    const menuItems = computed(() => {
+      const items = [
+        { view: 'dashboard', label: 'Dashboard', icon: markRaw(DashboardIcon) },
+        { view: 'clientes', label: 'Clientes', icon: markRaw(ClientesIcon) },
+        { view: 'os', label: 'Ordens de Serviço', icon: markRaw(OsIcon) },
+        { view: 'estoque', label: 'Estoque', icon: markRaw(EstoqueIcon) },
+        { view: 'vendas', label: 'Vendas (PDV)', icon: markRaw(VendasIcon) },
+        { view: 'caixa', label: 'Caixa', icon: markRaw(CaixaIcon) },
+        { view: 'relatorios', label: 'Relatórios', icon: markRaw(RelatoriosIcon) },
+      ];
+
+      // Exibe tela de usuários somente para perfil Gerente
+      if (usuario.value.perfil === 'Gerente') {
+        items.push({ view: 'usuarios', label: 'Usuários', icon: markRaw(UsuariosIcon) });
+      }
+
+      return items;
+    });
+
+    onMounted(() => {
+      const cached = localStorage.getItem('guicell_usuario');
+      if (cached) {
+        usuario.value = JSON.parse(cached);
+      }
+    });
 
     return {
+      usuario,
       menuItems
     };
   }

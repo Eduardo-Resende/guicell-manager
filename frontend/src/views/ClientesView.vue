@@ -164,7 +164,8 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, onMounted, watch } from 'vue';
+import { clientesService } from '../services/index.js';
 
 export default defineComponent({
   name: 'ClientesView',
@@ -174,6 +175,8 @@ export default defineComponent({
     const showHistoryModal = ref(false);
     const selectedClient = ref(null);
     const editingId = ref(null);
+    const clients = ref([]);
+    const clientHistory = ref([]);
 
     const form = ref({
       nome: '',
@@ -183,35 +186,21 @@ export default defineComponent({
       endereco: ''
     });
 
-    const clients = ref([
-      { id: 1, nome: 'Eduardo Santana', cpf: '043.233.129-33', telefone: '(62) 98112-4455', email: 'eduardo@email.com', endereco: 'Rua T-30, Setor Bueno, Goiânia - GO' },
-      { id: 2, nome: 'Mariana Costa', cpf: '839.294.102-12', telefone: '(62) 99221-5060', email: 'mariana.costa@hotmail.com', endereco: 'Av. 85, Setor Marista, Goiânia - GO' },
-      { id: 3, nome: 'Carlos Roberto', cpf: '128.394.029-45', telefone: '(62) 98554-1020', email: 'carlos.roberto@gmail.com', endereco: 'Rua 10, Centro, Goiânia - GO' },
-      { id: 4, nome: 'Julia Almeida', cpf: '739.102.348-11', telefone: '(62) 99182-3344', email: 'julia.almeida@gmail.com', endereco: 'Rua C-139, Jardim América, Goiânia - GO' },
-      { id: 5, nome: 'Ricardo Alves', cpf: '948.203.492-38', telefone: '(62) 98234-8899', email: 'ricardo.alves@outlook.com', endereco: 'Av. Circular, Setor Pedro Ludovico, Goiânia - GO' }
-    ]);
+    const fetchClients = async () => {
+      try {
+        const data = await clientesService.listar(searchQuery.value);
+        clients.value = data.map(c => ({
+          ...c,
+          id: c.id_cliente, // map to template binding
+          cpf: c.cpf_cnpj // map to template binding
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar clientes:', err);
+      }
+    };
 
-    const mockOS = [
-      { id: 1, client_id: 1, numero: '2026-0014', aparelho: 'iPhone 13', defeito: 'Tela Quebrada', status: 'Em Reparo', valor: 'R$ 850,00', data: '10/06/2026' },
-      { id: 2, client_id: 3, numero: '2026-0012', aparelho: 'Samsung Galaxy S22', defeito: 'Bateria inchada', status: 'Concluído', valor: 'R$ 350,00', data: '09/06/2026' },
-      { id: 3, client_id: 4, numero: '2026-0011', aparelho: 'iPhone 11', defeito: 'Câmera trincada', status: 'Aguard. Peça', valor: 'R$ 480,00', data: '09/06/2026' },
-      { id: 4, client_id: 5, numero: '2026-0010', aparelho: 'Xiaomi Poco X3', defeito: 'Não liga', status: 'Cancelado', valor: 'R$ 0,00', data: '09/06/2026' },
-      { id: 5, client_id: 1, numero: '2025-0044', aparelho: 'Xiaomi Redmi Note 10', defeito: 'Conector de carga', status: 'Entregue', valor: 'R$ 150,00', data: '12/12/2025' }
-    ];
-
-    const filteredClients = computed(() => {
-      if (!searchQuery.value) return clients.value;
-      const query = searchQuery.value.toLowerCase();
-      return clients.value.filter(c => 
-        c.nome.toLowerCase().includes(query) || 
-        c.cpf.includes(query) || 
-        c.telefone.includes(query)
-      );
-    });
-
-    const clientHistory = computed(() => {
-      if (!selectedClient.value) return [];
-      return mockOS.filter(os => os.client_id === selectedClient.value.id);
+    watch(searchQuery, () => {
+      fetchClients();
     });
 
     const closeModal = () => {
@@ -220,38 +209,68 @@ export default defineComponent({
       form.value = { nome: '', cpf: '', telefone: '', email: '', endereco: '' };
     };
 
-    const submitClient = () => {
-      if (editingId.value) {
-        // Update client
-        const idx = clients.value.findIndex(c => c.id === editingId.value);
-        if (idx !== -1) {
-          clients.value[idx] = { ...clients.value[idx], ...form.value };
-        }
-      } else {
-        // Add client
-        clients.value.push({
-          id: Date.now(),
-          ...form.value
-        });
+    const submitClient = async () => {
+      if (!form.value.nome || !form.value.telefone) {
+        alert('Nome e telefone são obrigatórios.');
+        return;
       }
-      closeModal();
+      try {
+        const payload = {
+          nome: form.value.nome,
+          cpf_cnpj: form.value.cpf,
+          telefone: form.value.telefone,
+          email: form.value.email,
+          endereco: form.value.endereco
+        };
+        if (editingId.value) {
+          await clientesService.atualizar(editingId.value, payload);
+        } else {
+          await clientesService.criar(payload);
+        }
+        await fetchClients();
+        closeModal();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao salvar cliente.');
+      }
     };
 
     const editClient = (client) => {
-      editingId.value = client.id;
-      form.value = { ...client };
+      editingId.value = client.id_cliente;
+      form.value = {
+        nome: client.nome,
+        cpf: client.cpf_cnpj || '',
+        telefone: client.telefone,
+        email: client.email || '',
+        endereco: client.endereco || ''
+      };
       showAddModal.value = true;
     };
 
-    const viewHistory = (client) => {
+    const viewHistory = async (client) => {
       selectedClient.value = client;
+      clientHistory.value = [];
       showHistoryModal.value = true;
+      try {
+        const details = await clientesService.buscarPorId(client.id_cliente);
+        clientHistory.value = (details.ordensServico || []).map(os => ({
+          id: os.id_os,
+          numero: os.numero_os,
+          aparelho: os.aparelho ? `${os.aparelho.marca} ${os.aparelho.modelo}` : 'Aparelho s/ ref',
+          defeito: os.defeito_relatado,
+          status: os.status,
+          valor: os.valor_final ? `R$ ${parseFloat(os.valor_final).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Não orçado',
+          data: new Date(os.data_abertura).toLocaleDateString('pt-BR')
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar histórico do cliente:', err);
+      }
     };
 
     const getBadgeClass = (status) => {
       switch (status) {
         case 'Aguardando': return 'badge-warning';
         case 'Em Reparo': return 'badge-info';
+        case 'Aguardando Peça':
         case 'Aguard. Peça': return 'badge-danger';
         case 'Concluído': return 'badge-success';
         case 'Entregue': return 'badge-success';
@@ -260,6 +279,10 @@ export default defineComponent({
       }
     };
 
+    onMounted(() => {
+      fetchClients();
+    });
+
     return {
       searchQuery,
       showAddModal,
@@ -267,7 +290,8 @@ export default defineComponent({
       selectedClient,
       editingId,
       form,
-      filteredClients,
+      clients,
+      filteredClients: clients, // Use direct list from API search
       clientHistory,
       closeModal,
       submitClient,
