@@ -16,7 +16,9 @@ const caixaRouter = Router();
 caixaRouter.use(authenticate);
 caixaRouter.get('/resumo-dia', caixaCtrl.resumoDia);
 caixaRouter.get('/', caixaCtrl.listar);
+caixaRouter.post('/abrir', caixaCtrl.abrirCaixa);
 caixaRouter.post('/', caixaCtrl.registrarManual);
+
 
 // Relatórios
 const relatoriosRouter = Router();

@@ -1,6 +1,7 @@
-const { Caixa, Usuario, sequelize } = require('../models');
+const { Caixa, Usuario } = require('../models');
 const { Op } = require('sequelize');
 
+// ─── Listar movimentações ─────────────────────────────────────────────────────
 const listar = async (req, res) => {
   try {
     const { data_inicio, data_fim, tipo } = req.query;
@@ -22,25 +23,81 @@ const listar = async (req, res) => {
   }
 };
 
+// ─── Resumo do dia (separa abertura das demais entradas) ──────────────────────
 const resumoDia = async (req, res) => {
   try {
     const hoje = new Date();
     const inicioDia = new Date(hoje.setHours(0, 0, 0, 0));
     const fimDia = new Date(new Date().setHours(23, 59, 59, 999));
-    const resultado = await Caixa.findAll({
+
+    const movimentos = await Caixa.findAll({
       where: { data: { [Op.between]: [inicioDia, fimDia] } },
-      attributes: ['tipo', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
-      group: ['tipo'],
       raw: true,
     });
-    const entradas = parseFloat(resultado.find(r => r.tipo === 'entrada')?.total || 0);
-    const saidas = parseFloat(resultado.find(r => r.tipo === 'saida')?.total || 0);
-    return res.json({ entradas, saidas, saldo: entradas - saidas });
+
+    const abertura = movimentos
+      .filter(m => m.categoria === 'Abertura de Caixa')
+      .reduce((sum, m) => sum + parseFloat(m.valor), 0);
+
+    const entradas = movimentos
+      .filter(m => m.tipo === 'entrada' && m.categoria !== 'Abertura de Caixa')
+      .reduce((sum, m) => sum + parseFloat(m.valor), 0);
+
+    const saidas = movimentos
+      .filter(m => m.tipo === 'saida')
+      .reduce((sum, m) => sum + parseFloat(m.valor), 0);
+
+    return res.json({
+      abertura,
+      entradas,
+      saidas,
+      saldo: abertura + entradas - saidas,
+      caixaAberto: abertura > 0,
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno.' });
   }
 };
 
+// ─── Abrir caixa do dia ───────────────────────────────────────────────────────
+const abrirCaixa = async (req, res) => {
+  try {
+    const { valor } = req.body;
+    if (valor === undefined || parseFloat(valor) < 0) {
+      return res.status(400).json({ error: 'Informe um valor de abertura válido.' });
+    }
+
+    const hoje = new Date();
+    const inicioDia = new Date(hoje.setHours(0, 0, 0, 0));
+    const fimDia = new Date(new Date().setHours(23, 59, 59, 999));
+
+    const jaAberto = await Caixa.findOne({
+      where: {
+        categoria: 'Abertura de Caixa',
+        data: { [Op.between]: [inicioDia, fimDia] },
+      },
+    });
+
+    if (jaAberto) {
+      return res.status(400).json({ error: 'O caixa já foi aberto hoje.' });
+    }
+
+    const mov = await Caixa.create({
+      id_usuario: req.usuario.id_usuario,
+      data: new Date(),
+      tipo: 'entrada',
+      valor: parseFloat(valor),
+      descricao: 'Abertura de Caixa',
+      categoria: 'Abertura de Caixa',
+    });
+
+    return res.status(201).json(mov);
+  } catch (err) {
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+};
+
+// ─── Registrar movimentação manual ────────────────────────────────────────────
 const registrarManual = async (req, res) => {
   try {
     const { tipo, valor, descricao, categoria } = req.body;
@@ -58,4 +115,4 @@ const registrarManual = async (req, res) => {
   }
 };
 
-module.exports = { listar, resumoDia, registrarManual };
+module.exports = { listar, resumoDia, abrirCaixa, registrarManual };
