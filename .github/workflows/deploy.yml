@@ -1,0 +1,43 @@
+name: 🚀 Deploy Guicell Manager — VPS Hostinger
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 📡 Conectar no VPS e fazer deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            echo "=== [1/5] Pulling latest code ==="
+            cd /var/www/guicell/guicell-manager
+            git pull origin main
+
+            echo "=== [2/5] Installing backend dependencies ==="
+            cd backend
+            npm ci --omit=dev
+            cd ..
+
+            echo "=== [3/5] Building frontend ==="
+            cd frontend
+            npm ci
+            npm run build
+            cd ..
+
+            echo "=== [4/5] Restarting backend via PM2 ==="
+            pm2 reload guicell-backend --update-env || pm2 start /var/www/guicell/guicell-manager/ecosystem.config.cjs --env production
+
+            echo "=== [5/5] Done! ==="
+            pm2 status guicell-backend
