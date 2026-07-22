@@ -38,6 +38,7 @@ module.exports = {
       modelo: { type: Sequelize.STRING(100), allowNull: false },
       imei: { type: Sequelize.STRING(20), unique: true, allowNull: true },
       observacoes: { type: Sequelize.TEXT, allowNull: true },
+      ativo: { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: true },
       criado_em: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
       atualizado_em: { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW },
     });

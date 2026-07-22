@@ -122,28 +122,21 @@
             <!-- Device selection -->
             <div class="form-group">
               <label>Aparelho para Reparo *</label>
-              <select v-model="selectedDeviceOption" required class="input-control select-control">
-                <option value="novo">Cadastrar Novo Aparelho</option>
+              <div v-if="!form.clienteId" class="aparelho-hint text-muted text-xs">
+                Selecione um cliente para ver os aparelhos disponíveis.
+              </div>
+              <div v-else-if="clientDevices.length === 0" class="aparelho-hint aparelho-hint-warn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;flex-shrink:0">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>Este cliente não tem aparelhos ativos cadastrados. Cadastre um na tela de <strong>Clientes → Aparelhos</strong>.</span>
+              </div>
+              <select v-else v-model="selectedDeviceOption" required class="input-control select-control">
+                <option value="">Selecione o Aparelho</option>
                 <option v-for="dev in clientDevices" :key="dev.id_aparelho" :value="dev.id_aparelho">
-                  {{ dev.marca }} {{ dev.modelo }} {{ dev.imei ? `(IMEI: ${dev.imei})` : '(Sem IMEI)' }}
+                  {{ dev.marca }} {{ dev.modelo }}{{ dev.imei ? ` (IMEI: ${dev.imei})` : '' }}
                 </option>
               </select>
-            </div>
-
-            <!-- Device specs -->
-            <div class="grid grid-cols-3 gap-2" v-if="selectedDeviceOption === 'novo'">
-              <div class="form-group">
-                <label>Marca *</label>
-                <input type="text" v-model="form.marca" required class="input-control" placeholder="Ex: Apple" />
-              </div>
-              <div class="form-group">
-                <label>Modelo *</label>
-                <input type="text" v-model="form.modelo" required class="input-control" placeholder="Ex: iPhone 13" />
-              </div>
-              <div class="form-group">
-                <label>IMEI / Série</label>
-                <input type="text" v-model="form.imei" class="input-control" placeholder="15 dígitos" />
-              </div>
             </div>
 
             <!-- Defect / Notes -->
@@ -340,9 +333,6 @@ export default defineComponent({
 
     const form = ref({
       clienteId: '',
-      marca: '',
-      modelo: '',
-      imei: '',
       defeito: '',
       tecnico: '',
       prazo: '',
@@ -350,14 +340,16 @@ export default defineComponent({
     });
 
     const clientDevices = ref([]);
-    const selectedDeviceOption = ref('novo');
+    const selectedDeviceOption = ref('');
 
     watch(() => form.value.clienteId, async (newVal) => {
-      selectedDeviceOption.value = 'novo';
+      selectedDeviceOption.value = '';
       if (newVal) {
         try {
-          const list = await aparelhosService.listarPorCliente(newVal);
+          const list = await aparelhosService.listarAtivosParaOS(newVal);
           clientDevices.value = list;
+          // Pré-seleciona se só houver um
+          if (list.length === 1) selectedDeviceOption.value = list[0].id_aparelho;
         } catch (err) {
           console.error('Erro ao buscar aparelhos do cliente:', err);
           clientDevices.value = [];
@@ -423,11 +415,10 @@ export default defineComponent({
 
     const closeAddModal = () => {
       showAddModal.value = false;
+      selectedDeviceOption.value = '';
+      clientDevices.value = [];
       form.value = {
         clienteId: '',
-        marca: '',
-        modelo: '',
-        imei: '',
         defeito: '',
         tecnico: '',
         prazo: '',
@@ -436,38 +427,15 @@ export default defineComponent({
     };
 
     const submitOS = async () => {
-      if (selectedDeviceOption.value === 'novo') {
-        if (!form.value.clienteId || !form.value.marca || !form.value.modelo || !form.value.defeito) {
-          alert('Por favor, preencha todos os campos obrigatórios.');
-          return;
-        }
-      } else {
-        if (!form.value.clienteId || !form.value.defeito) {
-          alert('Por favor, preencha o cliente e o defeito relatado.');
-          return;
-        }
+      if (!form.value.clienteId || !selectedDeviceOption.value || !form.value.defeito) {
+        alert('Por favor, selecione o cliente, o aparelho e descreva o defeito.');
+        return;
       }
 
       try {
-        let aparelhoId;
-        if (selectedDeviceOption.value === 'novo') {
-          // 1. Criar o aparelho (ou buscar se já existe via backend)
-          const aparelho = await aparelhosService.criar({
-            id_cliente: form.value.clienteId,
-            marca: form.value.marca,
-            modelo: form.value.modelo,
-            imei: form.value.imei,
-            observacoes: 'Cadastrado automaticamente na abertura da OS'
-          });
-          aparelhoId = aparelho.id_aparelho;
-        } else {
-          aparelhoId = parseInt(selectedDeviceOption.value);
-        }
-
-        // 2. Criar a OS vinculada ao aparelho
         await osService.criar({
           id_cliente: form.value.clienteId,
-          id_aparelho: aparelhoId,
+          id_aparelho: parseInt(selectedDeviceOption.value),
           id_tecnico: form.value.tecnico || null,
           defeito_relatado: form.value.defeito,
           valor_orcado: form.value.valorOrcado,
@@ -805,6 +773,28 @@ export default defineComponent({
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: #f4a429;
+}
+
+.aparelho-hint {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.aparelho-hint-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(239, 160, 50, 0.08);
+  border-color: rgba(239, 160, 50, 0.35);
+  color: #f4a429;
+}
+
+.aparelho-hint-warn strong {
   color: #f4a429;
 }
 </style>

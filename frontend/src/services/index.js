@@ -28,9 +28,14 @@ export const clientesService = {
 };
 
 export const aparelhosService = {
+  buscarMarcas: (busca) => api.get('/aparelhos/marcas', { params: { busca } }).then(r => r.data),
+  buscarModelos: (marca, busca) => api.get('/aparelhos/modelos', { params: { marca, busca } }).then(r => r.data),
+  consultarAPIExterna: (q) => api.get('/aparelhos/buscar-externo', { params: { q } }).then(r => r.data),
   listarPorCliente: (id_cliente) => api.get(`/aparelhos/cliente/${id_cliente}`).then(r => r.data),
+  listarAtivosParaOS: (id_cliente) => api.get(`/aparelhos/cliente/${id_cliente}/ativos`).then(r => r.data),
   criar: (dados) => api.post('/aparelhos', dados).then(r => r.data),
   atualizar: (id, dados) => api.put(`/aparelhos/${id}`, dados).then(r => r.data),
+  toggleAtivo: (id) => api.patch(`/aparelhos/${id}/toggle-ativo`).then(r => r.data),
 };
 
 export const osService = {

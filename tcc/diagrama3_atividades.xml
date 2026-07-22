@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- Título -->
+    <mxCell id="title" value="Diagrama de Atividades — Processo de Atendimento ao Cliente" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="100" y="10" width="980" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== SWIMLANE CONTAINER ===== -->
+    <mxCell id="pool" value="Processo de Atendimento — Guicell Manager" style="shape=pool;startSize=20;horizontal=1;childLayout=stackLayout;horizontalStack=1;resizeParent=1;resizeParentMax=0;collapsible=0;marginBottom=0;swimlaneHead=0;fillColor=none;strokeColor=#333333;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="50" width="1060" height="1540" as="geometry"/>
+    </mxCell>
+
+    <!-- Raia: Atendente -->
+    <mxCell id="lane-atendente" value="Atendente" style="swimlane;html=1;startSize=30;swimlaneHead=0;swimlaneBody=0;fillColor=#dae8fc;strokeColor=#6c8ebf;horizontal=0;points=[[0.5,0],[0.5,1]];fontSize=13;fontStyle=1;collapsible=0;" vertex="1" parent="pool">
+      <mxGeometry x="0" y="20" width="360" height="1520" as="geometry"/>
+    </mxCell>
+
+    <!-- Raia: Técnico -->
+    <mxCell id="lane-tecnico" value="Técnico" style="swimlane;html=1;startSize=30;swimlaneHead=0;swimlaneBody=0;fillColor=#d5e8d4;strokeColor=#82b366;horizontal=0;points=[[0.5,0],[0.5,1]];fontSize=13;fontStyle=1;collapsible=0;" vertex="1" parent="pool">
+      <mxGeometry x="360" y="20" width="360" height="1520" as="geometry"/>
+    </mxCell>
+
+    <!-- Raia: Sistema -->
+    <mxCell id="lane-sistema" value="Sistema" style="swimlane;html=1;startSize=30;swimlaneHead=0;swimlaneBody=0;fillColor=#fff2cc;strokeColor=#d6b656;horizontal=0;points=[[0.5,0],[0.5,1]];fontSize=13;fontStyle=1;collapsible=0;" vertex="1" parent="pool">
+      <mxGeometry x="720" y="20" width="340" height="1520" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== NÓ INICIAL ===== -->
+    <mxCell id="start" value="" style="ellipse;aspect=fixed;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="155" y="40" width="30" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- A1: Receber aparelho -->
+    <mxCell id="A1" value="Receber aparelho do cliente" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="90" y="100" width="180" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- D1: Cliente já cadastrado? -->
+    <mxCell id="D1" value="Cliente já cadastrado?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="105" y="175" width="150" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- A2: Cadastrar cliente e aparelho (Não) -->
+    <mxCell id="A2" value="Cadastrar cliente&#xa;e aparelho no sistema" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="20" y="270" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- M1: Merge cadastro -->
+    <mxCell id="M1" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="125" y="345" width="40" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- A3: Abrir OS -->
+    <mxCell id="A3" value="Abrir Ordem de Serviço" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="85" y="405" width="190" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A7: Comunicar cliente -->
+    <mxCell id="A7" value="Comunicar cliente&#xa;sobre o orçamento" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="85" y="635" width="190" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- D2: Cliente aprovou? -->
+    <mxCell id="D2" value="Cliente aprovou&#xa;o orçamento?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="100" y="710" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- A-cancel: Atualizar OS = Cancelada -->
+    <mxCell id="A-cancel" value="Atualizar status OS&#xa;para &quot;Cancelada&quot;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="10" y="810" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A-devolver: Devolver aparelho -->
+    <mxCell id="A-devolver" value="Devolver aparelho ao cliente" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="10" y="880" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Nó final CANCELAMENTO -->
+    <mxCell id="end-cancel" value="" style="ellipse;aspect=fixed;fillColor=#000000;strokeColor=#000000;double=1;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="75" y="950" width="30" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- A11: Cliente retira aparelho -->
+    <mxCell id="A11" value="Cliente retira o aparelho" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="85" y="1160" width="190" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A12: Fechar OS -->
+    <mxCell id="A12" value="Fechar OS" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="100" y="1230" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A13: Registrar pagamento -->
+    <mxCell id="A13" value="Registrar pagamento&#xa;e forma de pagamento" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="lane-atendente">
+      <mxGeometry x="85" y="1300" width="190" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== RAIA: TÉCNICO ===== -->
+
+    <!-- A4: Diagnóstico técnico -->
+    <mxCell id="A4" value="Realizar diagnóstico técnico" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="85" y="475" width="190" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A5: Orçar serviço -->
+    <mxCell id="A5" value="Orçar serviço" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="100" y="555" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A8: Iniciar reparo -->
+    <mxCell id="A8" value="Iniciar reparo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="100" y="820" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- D3: Peças disponíveis? -->
+    <mxCell id="D3" value="Peças disponíveis&#xa;em estoque?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="100" y="895" width="160" height="60" as="geometry"/>
+    </mxCell>
+
+    <!-- A-aguarda: Aguardar reposição -->
+    <mxCell id="A-aguarda" value="Atualizar OS: &quot;Aguardando Peça&quot;&#xa;Notificar cliente" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="215" y="995" width="130" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- M3: Merge peças -->
+    <mxCell id="M3" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="160" y="1075" width="40" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- A9: Concluir reparo -->
+    <mxCell id="A9" value="Concluir reparo" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="lane-tecnico">
+      <mxGeometry x="100" y="1135" width="160" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== RAIA: SISTEMA ===== -->
+
+    <!-- A6: Registrar peças / débito estoque -->
+    <mxCell id="A6" value="Registrar peças utilizadas&#xa;(débito automático no estoque)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="50" y="1000" width="230" height="50" as="geometry"/>
+    </mxCell>
+
+    <!-- A10: Atualizar status = Concluído -->
+    <mxCell id="A10" value='Atualizar OS: "Concluído"' style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="55" y="1205" width="220" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A10b: Notificar cliente -->
+    <mxCell id="A10b" value="Notificar cliente que&#xa;aparelho está pronto" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="55" y="1275" width="220" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A14: Emitir comprovante -->
+    <mxCell id="A14" value="Emitir comprovante de OS" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="55" y="1375" width="220" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A15: Atualizar caixa -->
+    <mxCell id="A15" value="Atualizar caixa automaticamente" style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="55" y="1445" width="220" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- A16: Atualizar status = Entregue -->
+    <mxCell id="A16" value='Atualizar OS: "Entregue"' style="rounded=1;whiteSpace=wrap;html=1;arcSize=50;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="75" y="1460" width="180" height="40" as="geometry"/>
+    </mxCell>
+
+    <!-- Nó final PRINCIPAL -->
+    <mxCell id="end-main" value="" style="ellipse;aspect=fixed;fillColor=#000000;strokeColor=#000000;double=1;" vertex="1" parent="lane-sistema">
+      <mxGeometry x="145" y="1480" width="30" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== FLUXO DE CONTROLE (SETAS) ===== -->
+    <!-- start → A1 -->
+    <mxCell id="f01" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="start" target="A1" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A1 → D1 -->
+    <mxCell id="f02" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A1" target="D1" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D1 [Não] → A2 -->
+    <mxCell id="f03" value="[Não]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D1" target="A2" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A2 → M1 -->
+    <mxCell id="f04" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A2" target="M1" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D1 [Sim] → M1 -->
+    <mxCell id="f05" value="[Sim]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D1" target="M1" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- M1 → A3 -->
+    <mxCell id="f06" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="M1" target="A3" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A3 → A4 (cross-lane) -->
+    <mxCell id="f07" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="A3" target="A4" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A4 → A5 -->
+    <mxCell id="f08" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A4" target="A5" parent="lane-tecnico"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A5 → A7 (cross-lane) -->
+    <mxCell id="f09" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A5" target="A7" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A7 → D2 -->
+    <mxCell id="f10" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A7" target="D2" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D2 [Não] → A-cancel -->
+    <mxCell id="f11" value="[Não]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D2" target="A-cancel" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A-cancel → A-devolver -->
+    <mxCell id="f12" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A-cancel" target="A-devolver" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A-devolver → end-cancel -->
+    <mxCell id="f13" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A-devolver" target="end-cancel" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D2 [Sim] → A8 (cross-lane) -->
+    <mxCell id="f14" value="[Sim]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D2" target="A8" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A8 → D3 -->
+    <mxCell id="f15" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A8" target="D3" parent="lane-tecnico"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D3 [Não] → A-aguarda -->
+    <mxCell id="f16" value="[Não]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D3" target="A-aguarda" parent="lane-tecnico"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A-aguarda → M3 (loop retorno) -->
+    <mxCell id="f17" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A-aguarda" target="M3" parent="lane-tecnico"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- D3 [Sim] → M3 (merge) -->
+    <mxCell id="f17b" value="[Sim]" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="D3" target="M3" parent="lane-tecnico"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- M3 → A6 (cross-lane) -->
+    <mxCell id="f18" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="M3" target="A6" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A6 → A9 (cross-lane) -->
+    <mxCell id="f19" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A6" target="A9" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A9 → A10 (cross-lane) -->
+    <mxCell id="f20" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A9" target="A10" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A10 → A10b -->
+    <mxCell id="f21" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A10" target="A10b" parent="lane-sistema"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A10b → A11 (cross-lane) -->
+    <mxCell id="f22" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A10b" target="A11" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A11 → A12 -->
+    <mxCell id="f23" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A11" target="A12" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A12 → A13 -->
+    <mxCell id="f24" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A12" target="A13" parent="lane-atendente"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A13 → A14 (cross-lane) -->
+    <mxCell id="f25" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A13" target="A14" parent="pool"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A14 → A15 -->
+    <mxCell id="f26" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A14" target="A15" parent="lane-sistema"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A15 → A16 -->
+    <mxCell id="f27" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A15" target="A16" parent="lane-sistema"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <!-- A16 → end-main -->
+    <mxCell id="f28" style="edgeStyle=orthogonalEdgeStyle;html=1;" edge="1" source="A16" target="end-main" parent="lane-sistema"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- Legenda -->
+    <mxCell id="footer" value="Fonte: Elaborado pelos autores (2026)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="400" y="1610" width="380" height="20" as="geometry"/>
+    </mxCell>
+
+  </root>
+</mxGraphModel>

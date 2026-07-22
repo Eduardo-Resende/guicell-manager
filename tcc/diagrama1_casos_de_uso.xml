@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <!-- Título -->
+    <mxCell id="title" value="Diagrama de Casos de Uso — Guicell Manager" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="284" y="20" width="600" height="30" as="geometry"/>
+    </mxCell>
+
+    <!-- Retângulo do Sistema -->
+    <mxCell id="sistema" value="&lt;b&gt;Guicell Manager&lt;/b&gt;" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];shape=mxgraph.uml.boundary;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=top;fillColor=none;strokeColor=#333333;" vertex="1" parent="1">
+      <mxGeometry x="250" y="60" width="660" height="820" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== CASOS DE USO ===== -->
+    <mxCell id="UC01" value="UC01 – Autenticar no sistema" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="400" y="100" width="220" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC02" value="UC02 – Cadastrar / Consultar / Editar cliente" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="270" y="175" width="260" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC03" value="UC03 – Cadastrar aparelho" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="290" y="250" width="220" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC04" value="UC04 – Abrir Ordem de Serviço" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="270" y="325" width="240" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC05" value="UC05 – Consultar / Atualizar OS" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="380" y="400" width="240" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC06" value="UC06 – Registrar peças utilizadas na OS" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="370" y="475" width="260" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC07" value="UC07 – Fechar OS e registrar pagamento" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="270" y="550" width="260" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC08" value="UC08 – Emitir comprovante de OS" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="270" y="625" width="240" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC09" value="UC09 – Controlar estoque (entrada e saída)" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="265" y="700" width="260" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC10" value="UC10 – Registrar venda de acessório" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="270" y="775" width="240" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC11" value="UC11 – Movimentar caixa manualmente" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="620" y="550" width="250" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC12" value="UC12 – Emitir relatórios" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="640" y="700" width="220" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="UC13" value="UC13 – Gerenciar usuários" style="ellipse;whiteSpace=wrap;html=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="640" y="625" width="220" height="44" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== ATOR: Atendente ===== -->
+    <mxCell id="atendente" value="Atendente" style="shape=mxgraph.uml.actor;whiteSpace=wrap;html=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="80" y="340" width="50" height="80" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== ATOR: Técnico ===== -->
+    <mxCell id="tecnico" value="Técnico" style="shape=mxgraph.uml.actor;whiteSpace=wrap;html=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="80" y="470" width="50" height="80" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== ATOR: Gerente ===== -->
+    <mxCell id="gerente" value="Gerente" style="shape=mxgraph.uml.actor;whiteSpace=wrap;html=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="440" width="50" height="80" as="geometry"/>
+    </mxCell>
+
+    <!-- ===== ASSOCIAÇÕES: Atendente ===== -->
+    <mxCell id="a-att-uc01" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC01" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc02" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC02" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc03" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC03" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc04" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC04" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc05" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC05" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc07" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC07" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc08" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC08" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc09" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC09" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-att-uc10" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="atendente" target="UC10" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ===== ASSOCIAÇÕES: Técnico ===== -->
+    <mxCell id="a-tec-uc01" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="tecnico" target="UC01" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-tec-uc05" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="tecnico" target="UC05" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-tec-uc06" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="tecnico" target="UC06" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ===== ASSOCIAÇÕES: Gerente ===== -->
+    <mxCell id="a-ger-uc01" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC01" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc02" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC02" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc03" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC03" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc04" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC04" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc05" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC05" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc06" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC06" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc07" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC07" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc08" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC08" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc09" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC09" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc10" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC10" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc11" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc12" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC12" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="a-ger-uc13" style="edgeStyle=none;html=1;endArrow=none;" edge="1" source="gerente" target="UC13" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ===== RELAÇÕES <<include>> ===== -->
+    <mxCell id="inc-uc04-uc01" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;" edge="1" source="UC04" target="UC01" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="inc-uc07-uc06" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;" edge="1" source="UC07" target="UC06" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="inc-uc07-uc11" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;" edge="1" source="UC07" target="UC11" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="inc-uc09-uc06" value="&lt;&lt;include&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;" edge="1" source="UC09" target="UC06" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+    <!-- ===== RELAÇÕES <<extend>> ===== -->
+    <mxCell id="ext-uc08-uc07" value="&lt;&lt;extend&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;strokeColor=#996600;" edge="1" source="UC08" target="UC07" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+    <mxCell id="ext-uc12-uc07" value="&lt;&lt;extend&gt;&gt;" style="edgeStyle=none;html=1;dashed=1;endArrow=open;endFill=0;fontSize=11;fontStyle=2;strokeColor=#996600;" edge="1" source="UC12" target="UC07" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+  </root>
+</mxGraphModel>
