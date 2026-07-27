@@ -251,7 +251,6 @@
             <span>OS com status <strong>{{ selectedOS.originalStatus }}</strong> — somente leitura. Não é possível editar uma OS já finalizada.</span>
           </div>
 
-          <!-- OS Info tabs -->
           <div class="info-block card mb-4">
             <h4 class="mb-2">Informações Operacionais</h4>
             <div class="grid grid-cols-2 gap-2 text-sm">
@@ -260,8 +259,11 @@
               <div><strong>Técnico:</strong> {{ selectedOS.tecnico }}</div>
               <div><strong>Prazo:</strong> {{ selectedOS.prazo }}</div>
             </div>
-            <div class="text-sm mt-2">
+            <div class="text-sm mt-2 defeito-box" v-if="selectedOS.defeito">
               <strong>Defeito Relatado:</strong> {{ selectedOS.defeito }}
+            </div>
+            <div class="text-sm mt-2 defeito-box defeito-vazio" v-else>
+              <em>Defeito relatado não informado.</em>
             </div>
           </div>
 
@@ -272,54 +274,80 @@
           </div>
 
           <!-- Used Parts Section -->
-          <div class="form-group mb-4">
-            <label>Peças e Componentes Usados</label>
-            <div class="parts-selector flex gap-2 mb-2">
-              <select v-model="newPartId" class="input-control select-control flex-1" :disabled="isClosed">
-                <option value="">Adicionar Peça do Estoque...</option>
-                <option v-for="p in mockProducts" :key="p.id_produto" :value="p.id_produto">
-                  {{ p.descricao }} {{ p.codigo_barras ? `(EAN: ${p.codigo_barras})` : '' }} (Estoque: {{ p.estoque_atual }} | R$ {{ parseFloat(p.valor_venda).toFixed(2) }})
-                </option>
-              </select>
-              <button type="button" class="btn btn-secondary" @click="addPart" :disabled="isClosed">Adicionar</button>
+          <div class="parts-section mb-4">
+            <div class="parts-header">
+              <span class="parts-title">Peças e Componentes</span>
+              <div class="parts-add-row" v-if="!isClosed">
+                <select v-model="newPartId" class="input-control select-control parts-select">
+                  <option value="">+ Adicionar peça do estoque...</option>
+                  <option v-for="p in mockProducts" :key="p.id_produto" :value="p.id_produto">
+                    {{ p.descricao }} — R$ {{ parseFloat(p.valor_venda).toFixed(2) }} (Estoque: {{ p.estoque_atual }})
+                  </option>
+                </select>
+                <button type="button" class="btn btn-sm btn-compra" @click="addPart" :disabled="!newPartId">Adicionar</button>
+              </div>
             </div>
-            <div class="table-responsive select-parts-table" v-if="selectedOS.parts && selectedOS.parts.length > 0">
-              <table>
+
+            <div v-if="selectedOS.parts && selectedOS.parts.length > 0" class="parts-table-wrap">
+              <table class="parts-table">
                 <thead>
                   <tr>
                     <th>Peça</th>
-                    <th>Valor</th>
-                    <th class="text-right">Ação</th>
+                    <th class="text-center" style="width:70px">Qtd</th>
+                    <th class="text-right" style="width:100px">Unitário</th>
+                    <th class="text-right" style="width:100px">Subtotal</th>
+                    <th v-if="!isClosed" style="width:60px"></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(part, index) in selectedOS.parts" :key="index">
-                    <td>{{ part.descricao }}</td>
-                    <td>R$ {{ part.preco.toFixed(2) }}</td>
-                    <td class="text-right">
-                      <a href="#" class="text-danger" @click.prevent="removePart(index)">Remover</a>
+                    <td class="part-name">{{ part.descricao }}</td>
+                    <td class="text-center">
+                      <input
+                        v-if="!isClosed"
+                        type="number"
+                        v-model.number="part.qtd"
+                        min="1"
+                        @change="recalcParts"
+                        class="qty-input"
+                      />
+                      <span v-else>{{ part.qtd }}</span>
+                    </td>
+                    <td class="text-right">R$ {{ part.preco.toFixed(2) }}</td>
+                    <td class="text-right font-bold">R$ {{ (part.preco * (part.qtd || 1)).toFixed(2) }}</td>
+                    <td v-if="!isClosed" class="text-center">
+                      <button type="button" class="remove-part-btn" @click="removePart(index)" title="Remover">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <div v-else class="parts-empty">Nenhuma peça adicionada.</div>
           </div>
 
-          <!-- Total Cost -->
-          <div class="flex justify-between items-center bg-dark p-3 rounded mb-4 border-style">
-            <div>
-              <span class="text-muted text-xs">MÃO DE OBRA:</span>
-              <div class="flex items-center gap-1 font-bold text-white">
-                 <input type="number" step="0.01" v-model.number="selectedOS.maoObra" class="input-control text-white" :disabled="isClosed" style="width: 100px; padding: 2px 5px; height: auto; background-color: transparent; border: 1px solid #444;" />
+          <!-- Totais -->
+          <div class="totais-grid mb-4">
+            <div class="totais-row">
+              <div class="totais-item">
+                <span class="totais-label">Mão de Obra</span>
+                <input type="number" step="0.01" v-model.number="selectedOS.maoObra" class="totais-input" :disabled="isClosed" />
               </div>
-            </div>
-            <div>
-              <span class="text-muted text-xs">PEÇAS:</span>
-              <div class="font-bold text-white">R$ {{ selectedOS.partsTotal.toFixed(2) }}</div>
-            </div>
-            <div class="text-right">
-              <span class="text-muted text-xs">VALOR FINAL:</span>
-              <div class="font-bold text-success text-lg">R$ {{ (selectedOS.maoObra + selectedOS.partsTotal).toFixed(2) }}</div>
+              <div class="totais-item">
+                <span class="totais-label">Peças</span>
+                <span class="totais-value">R$ {{ selectedOS.partsTotal.toFixed(2) }}</span>
+              </div>
+              <div class="totais-item">
+                <span class="totais-label">Desconto</span>
+                <input type="number" step="0.01" v-model.number="selectedOS.desconto" min="0" class="totais-input" :disabled="isClosed" />
+              </div>
+              <div class="totais-item totais-total">
+                <span class="totais-label">TOTAL FINAL</span>
+                <span class="totais-value-big">R$ {{ valorFinal.toFixed(2) }}</span>
+              </div>
             </div>
           </div>
 
@@ -447,6 +475,7 @@ export default defineComponent({
               descricao: it.produto?.descricao || 'Produto/Peça',
               preco: parseFloat(it.valor_unitario)
             })),
+            defeito: os.defeito_relatado || os.defeito || '',
             diagnostico: os.diagnostico || '',
             formaPagamento: os.forma_pagamento || 'PIX',
             id_cliente: os.id_cliente,
@@ -518,16 +547,19 @@ export default defineComponent({
         selectedOS.value = {
           ...os,
           status: detailedOS.status || os.status,
-          originalStatus: detailedOS.status || os.status, // Status real do banco (imutável durante o modal)
+          originalStatus: detailedOS.status || os.status,
+          defeito: detailedOS.defeito_relatado || os.defeito || '',
           maoObra: parseFloat(detailedOS.valor_orcado || os.maoObra || 0),
+          desconto: parseFloat(detailedOS.desconto || 0),
           formaPagamento: detailedOS.forma_pagamento || os.formaPagamento || 'PIX',
           diagnostico: detailedOS.diagnostico || '',
           parts: (detailedOS.itens || []).map(it => ({
             id: it.id_produto,
             descricao: it.produto?.descricao || 'Produto/Peça',
-            preco: parseFloat(it.valor_unitario)
+            preco: parseFloat(it.valor_unitario),
+            qtd: it.quantidade || 1
           })),
-          partsTotal: (detailedOS.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * it.quantidade, 0)
+          partsTotal: (detailedOS.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * (it.quantidade || 1), 0)
         };
         originalParts.value = [...selectedOS.value.parts];
         showDetailModal.value = true;
@@ -544,21 +576,34 @@ export default defineComponent({
         selectedOS.value.parts.push({
           id: part.id_produto,
           descricao: part.descricao,
-          preco: parseFloat(part.valor_venda)
+          preco: parseFloat(part.valor_venda),
+          qtd: 1
         });
-        selectedOS.value.partsTotal += parseFloat(part.valor_venda);
+        recalcParts();
         newPartId.value = '';
       }
     };
 
-    const removePart = (index) => {
-      const part = selectedOS.value.parts[index];
-      selectedOS.value.partsTotal -= part.preco;
-      selectedOS.value.parts.splice(index, 1);
+    const recalcParts = () => {
+      if (!selectedOS.value) return;
+      selectedOS.value.partsTotal = selectedOS.value.parts.reduce(
+        (sum, p) => sum + p.preco * (p.qtd || 1), 0
+      );
     };
 
+    const removePart = (index) => {
+      selectedOS.value.parts.splice(index, 1);
+      recalcParts();
+    };
+
+    const valorFinal = computed(() => {
+      if (!selectedOS.value) return 0;
+      const total = (selectedOS.value.maoObra || 0) + (selectedOS.value.partsTotal || 0);
+      const desconto = selectedOS.value.desconto || 0;
+      return Math.max(0, total - desconto);
+    });
+
     const saveOSChanges = async () => {
-      // Bloquear edição de OS já finalizada (Entregue ou Cancelada)
       if (isClosed.value) {
         alert('Esta OS já está finalizada e não pode ser alterada.');
         return;
@@ -566,15 +611,17 @@ export default defineComponent({
 
       try {
         const id = selectedOS.value.id_os;
+        const desconto = selectedOS.value.desconto || 0;
+        const total = valorFinal.value;
         
         // Se mudou o status para 'Entregue', realiza o fluxo de fechamento/faturamento
         if (selectedOS.value.status === 'Entregue') {
           await osService.fechar(id, {
-            valor_final: selectedOS.value.maoObra + selectedOS.value.partsTotal,
+            valor_final: total,
             forma_pagamento: selectedOS.value.formaPagamento,
             itens: selectedOS.value.parts.map(p => ({
               id_produto: p.id,
-              quantidade: 1,
+              quantidade: p.qtd || 1,
               valor_unitario: p.preco
             }))
           });
@@ -586,7 +633,7 @@ export default defineComponent({
             selectedOS.value.diagnostico,
             selectedOS.value.parts.map(p => ({
               id_produto: p.id,
-              quantidade: 1,
+              quantidade: p.qtd || 1,
               valor_unitario: p.preco
             })),
             selectedOS.value.maoObra
@@ -749,6 +796,8 @@ export default defineComponent({
       fetchOS,
       clientDevices,
       selectedDeviceOption,
+      valorFinal,
+      recalcParts,
       isClosed,
       kanbanColumns,
       osForStatus,
@@ -865,6 +914,194 @@ export default defineComponent({
 
 .border-style {
   border: 1px solid var(--border);
+}
+
+/* Defeito box */
+.defeito-box {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  line-height: 1.5;
+}
+.defeito-vazio {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+/* Parts Section */
+.parts-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.parts-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+
+.parts-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.parts-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.parts-select {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.parts-table-wrap {
+  overflow-x: auto;
+}
+
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.parts-table th {
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.01);
+}
+
+.parts-table td {
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.parts-table tr:last-child td {
+  border-bottom: none;
+}
+
+.part-name {
+  font-weight: 500;
+  color: var(--text-white);
+}
+
+.qty-input {
+  width: 52px;
+  text-align: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  color: var(--text-white);
+  font-size: 0.875rem;
+}
+
+.qty-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.remove-part-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #f87171;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.remove-part-btn:hover { opacity: 1; }
+
+.parts-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+/* Totais */
+.totais-grid {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.totais-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.3fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.totais-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.totais-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.totais-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  color: var(--text-white);
+  font-size: 0.9rem;
+  font-weight: 600;
+  width: 100%;
+}
+.totais-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.totais-input:disabled {
+  opacity: 0.6;
+}
+
+.totais-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+.totais-total {
+  background: rgba(var(--primary-rgb, 34, 197, 94), 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.totais-value-big {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #4ade80;
 }
 
 @media (max-width: 768px) {
@@ -1151,4 +1388,23 @@ export default defineComponent({
 .aparelho-hint-warn strong {
   color: #f4a429;
 }
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  border-radius: 7px;
+}
+
+.btn-compra {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 8px 16px;
+  transition: opacity 0.2s;
+}
+.btn-compra:hover { opacity: 0.88; }
+.btn-compra:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

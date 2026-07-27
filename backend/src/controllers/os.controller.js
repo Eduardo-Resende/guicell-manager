@@ -1,10 +1,13 @@
 const { OrdemServico, Cliente, Aparelho, Usuario, ItemOS, Produto, Caixa, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-// Gera número de OS sequencial: OS-YYYYMMDD-XXXX
+// Gera número de OS sequencial: DDMMAAAA-XXXX
 const gerarNumeroOS = async () => {
   const hoje = new Date();
-  const prefixo = `OS-${hoje.getFullYear()}${String(hoje.getMonth() + 1).padStart(2, '0')}${String(hoje.getDate()).padStart(2, '0')}`;
+  const dd = String(hoje.getDate()).padStart(2, '0');
+  const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+  const aaaa = hoje.getFullYear();
+  const prefixo = `${dd}${mm}${aaaa}`;
   const count = await OrdemServico.count({
     where: { numero_os: { [Op.like]: `${prefixo}%` } },
   });
@@ -299,7 +302,12 @@ const dashboard = async (req, res) => {
     const [osAbertas, osConcluidas, prodEstoqueMinimo, statusCounts] = await Promise.all([
       OrdemServico.count({ where: { status: { [Op.in]: ['Aguardando Diagnóstico', 'Aguardando Cliente', 'Em Reparo', 'Aguardando Peça'] } } }),
       OrdemServico.count({ where: { status: { [Op.in]: ['Concluído', 'Entregue'] }, data_fechamento: { [Op.between]: [inicioDia, fimDia] } } }),
-      Produto.count({ where: { estoque_atual: { [Op.lte]: sequelize.col('estoque_minimo') } } }),
+      Produto.count({
+        where: {
+          estoque_minimo: { [Op.gt]: 0 },
+          estoque_atual: { [Op.lte]: sequelize.col('estoque_minimo') }
+        }
+      }),
       OrdemServico.findAll({
         attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id_os')), 'count']],
         group: ['status'],

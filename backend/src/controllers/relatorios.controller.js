@@ -139,7 +139,7 @@ const relatorioEstoque = async (req, res) => {
       ],
       order: [['descricao', 'ASC']]
     });
-    const emAlerta = produtos.filter(p => p.estoque_atual <= p.estoque_minimo).length;
+    const emAlerta = produtos.filter(p => (p.estoque_minimo || 0) > 0 && p.estoque_atual <= p.estoque_minimo).length;
     return res.json({ produtos, totais: { total: produtos.length, em_alerta: emAlerta } });
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno.' });

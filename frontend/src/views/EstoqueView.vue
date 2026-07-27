@@ -106,19 +106,19 @@
                   </span>
                   <span v-else class="text-muted">—</span>
                 </td>
-                <td class="font-bold" :class="{ 'text-danger': prod.qtd <= prod.min }">{{ prod.qtd }}</td>
-                <td>{{ prod.min }}</td>
+                <td class="font-bold" :class="{ 'text-danger': prod.min > 0 && prod.qtd <= prod.min }">{{ prod.qtd }}</td>
+                <td>{{ prod.min > 0 ? prod.min : '—' }}</td>
                 <td>R$ {{ prod.custo.toFixed(2) }}</td>
                 <td class="font-semibold text-white">R$ {{ prod.venda.toFixed(2) }}</td>
                 <td>
                   <span 
-                    v-if="prod.qtd <= prod.min" 
+                    v-if="prod.min > 0 && prod.qtd <= prod.min" 
                     class="badge badge-danger"
                   >
                     Crítico
                   </span>
                   <span 
-                    v-else-if="prod.qtd <= prod.min + 2" 
+                    v-else-if="prod.min > 0 && prod.qtd <= prod.min + 2" 
                     class="badge badge-warning"
                   >
                     Alerta
@@ -182,118 +182,199 @@
 
     <!-- Tab Content: Categories Management -->
     <div v-else-if="activeTab === 'categories'" class="tab-content categories-management">
-      <div class="grid grid-cols-2 gap-4">
-        <!-- List of Categories -->
-        <div class="card">
-          <h3 class="mb-4">Categorias Cadastradas</h3>
-          
-          <div class="categories-list">
-            <div v-for="parent in categoriesHierarchical" :key="parent.id_categoria" class="category-tree-node mb-4">
-              <div class="parent-node flex justify-between items-center py-2 border-b">
-                <div class="flex items-center gap-2">
-                  <span class="font-bold text-white text-lg">{{ parent.nome }}</span>
-                  <span :class="['badge', getTipoUsoBadge(parent.tipo_uso)]" style="font-size: 0.65rem; padding: 2px 8px;">{{ parent.tipo_uso }}</span>
-                </div>
-                <div class="flex gap-2">
-                  <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="openEditCategory(parent)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
-                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                      <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      <div class="categories-layout">
+        
+        <!-- Left Column: Tree List of Categories -->
+        <div class="card cat-list-card">
+          <div class="cat-list-header">
+            <div>
+              <h3 class="m-0">Categorias Cadastradas</h3>
+            </div>
+            <div class="cat-count-badge" v-if="categoriesHierarchical.length > 0">
+              {{ categoriesHierarchical.length }} principais
+            </div>
+          </div>
+
+          <div class="categories-tree">
+            <div v-for="parent in categoriesHierarchical" :key="parent.id_categoria" class="cat-tree-card">
+              <!-- Parent Node Header -->
+              <div class="parent-cat-row">
+                <div class="parent-cat-left">
+                  <div class="cat-icon-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;" class="text-emerald-400">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                     </svg>
-                  </button>
-                  <button class="btn btn-danger btn-xs btn-icon-only" title="Remover" @click="deleteCategory(parent.id_categoria)">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div class="sub-nodes ml-4 pl-3 border-l" style="border-color: var(--border);">
-                <div v-for="sub in parent.subcategorias" :key="sub.id_categoria" class="sub-node flex justify-between items-center py-2 border-b border-dashed" style="border-color: var(--border);">
-                  <div class="flex items-center gap-2">
-                    <span class="text-normal">{{ sub.nome }}</span>
-                    <span :class="['badge', getTipoUsoBadge(sub.tipo_uso)]" style="font-size: 0.6rem; padding: 1px 6px;">{{ sub.tipo_uso }}</span>
                   </div>
-                  <div class="flex gap-2">
-                    <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="openEditCategory(sub)">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                  <div class="cat-name-block">
+                    <span class="parent-cat-title">{{ parent.nome }}</span>
+                    <span class="sub-count-tag" v-if="parent.subcategorias && parent.subcategorias.length > 0">
+                      {{ parent.subcategorias.length }} {{ parent.subcategorias.length === 1 ? 'subcategoria' : 'subcategorias' }}
+                    </span>
+                    <span class="sub-count-tag text-muted" v-else>Sem subcategorias</span>
+                  </div>
+                </div>
+
+                <div class="parent-cat-right">
+                  <span :class="['uso-badge', getTipoUsoBadge(parent.tipo_uso)]">
+                    {{ parent.tipo_uso }}
+                  </span>
+                  <div class="cat-actions">
+                    <button class="cat-action-btn edit-btn" title="Editar categoria" @click="openEditCategory(parent)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                         <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                       </svg>
                     </button>
-                    <button class="btn btn-danger btn-xs btn-icon-only" title="Remover" @click="deleteCategory(sub.id_categoria)">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                    <button class="cat-action-btn delete-btn" title="Excluir categoria" @click="deleteCategory(parent.id_categoria)">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                       </svg>
                     </button>
                   </div>
                 </div>
-                <div v-if="parent.subcategorias.length === 0" class="py-2 text-xs text-muted">
-                  Nenhuma subcategoria vinculada.
+              </div>
+
+              <!-- Subcategories Branch -->
+              <div v-if="parent.subcategorias && parent.subcategorias.length > 0" class="subcat-branch">
+                <div v-for="sub in parent.subcategorias" :key="sub.id_categoria" class="subcat-row">
+                  <div class="subcat-left">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;" class="branch-icon">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                    <span class="subcat-title">{{ sub.nome }}</span>
+                  </div>
+                  <div class="subcat-right">
+                    <span :class="['uso-badge uso-badge-sub', getTipoUsoBadge(sub.tipo_uso || parent.tipo_uso)]">
+                      {{ sub.tipo_uso ? sub.tipo_uso : `${parent.tipo_uso} (Herdado)` }}
+                    </span>
+                    <div class="cat-actions">
+                      <button class="cat-action-btn edit-btn" title="Editar subcategoria" @click="openEditCategory(sub)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                      <button class="cat-action-btn delete-btn" title="Excluir subcategoria" @click="deleteCategory(sub.id_categoria)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div v-if="categoriesHierarchical.length === 0" class="text-center text-muted py-6">
-              Nenhuma categoria cadastrada.
+
+            <!-- Empty state -->
+            <div v-if="categoriesHierarchical.length === 0" class="cat-empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-cat-icon">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <p class="m-0 font-semibold text-white">Nenhuma categoria cadastrada</p>
+              <p class="text-xs text-muted mt-1 m-0">Use o painel ao lado para criar sua primeira categoria principal.</p>
             </div>
           </div>
         </div>
         
-        <!-- Forms to Add Categories -->
-        <div class="flex flex-col gap-4">
-          <!-- Add Parent Category -->
-          <div class="card">
-            <h3 class="mb-4">Nova Categoria Principal</h3>
-            <form @submit.prevent="submitParentCategory">
-              <div class="form-group">
-                <label>Nome da Categoria Pai *</label>
-                <input type="text" v-model="parentCategoryForm.nome" required class="input-control" placeholder="Ex: Peça, Acessório" />
-              </div>
-              <div class="form-group">
-                <label>Tipo de Uso *</label>
-                <select v-model="parentCategoryForm.tipo_uso" required class="input-control select-control">
-                  <option value="Ambos">Ambos (PDV & OS)</option>
-                  <option value="Venda">Apenas Venda (PDV)</option>
-                  <option value="OS">Apenas Ordem de Serviço (OS)</option>
-                </select>
-              </div>
-              <button type="submit" class="btn w-full">Criar Categoria Principal</button>
-            </form>
+        <!-- Right Column: Single Unified Creation Card with Segmented Switcher -->
+        <div class="card cat-form-card">
+          <div class="cat-form-header">
+            <h3 class="m-0">Cadastrar Categoria</h3>
           </div>
-          
-          <!-- Add Subcategory -->
-          <div class="card">
-            <h3 class="mb-4">Nova Subcategoria</h3>
-            <form @submit.prevent="submitSubCategory">
-              <div class="form-group">
-                <label>Categoria Pai *</label>
-                <select v-model="subCategoryForm.id_pai" required class="input-control select-control">
-                  <option value="">Selecione a categoria principal</option>
-                  <option v-for="cat in categoriesHierarchical" :key="cat.id_categoria" :value="cat.id_categoria">
-                    {{ cat.nome }}
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Nome da Subcategoria *</label>
-                <input type="text" v-model="subCategoryForm.nome" required class="input-control" placeholder="Ex: Capinha, Película, Bateria" />
-              </div>
-              <div class="form-group">
-                <label>Tipo de Uso (Opcional — Herda do pai se vazio)</label>
-                <select v-model="subCategoryForm.tipo_uso" class="input-control select-control">
-                  <option value="">Herdar da Categoria Pai</option>
-                  <option value="Ambos">Ambos (PDV & OS)</option>
-                  <option value="Venda">Apenas Venda (PDV)</option>
-                  <option value="OS">Apenas Ordem de Serviço (OS)</option>
-                </select>
-              </div>
-              <button type="submit" class="btn w-full">Criar Subcategoria</button>
-            </form>
+
+          <!-- Segmented Tab Switcher -->
+          <div class="cat-tab-switcher mb-4">
+            <button
+              type="button"
+              :class="['cat-tab-btn', { active: categoryFormTab === 'principal' }]"
+              @click="categoryFormTab = 'principal'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 15px; height: 15px;" class="tab-btn-svg">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Categoria Principal</span>
+            </button>
+            <button
+              type="button"
+              :class="['cat-tab-btn', { active: categoryFormTab === 'sub' }]"
+              @click="categoryFormTab = 'sub'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 15px; height: 15px;" class="tab-btn-svg">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+              <span>Subcategoria</span>
+            </button>
           </div>
+
+          <!-- Form: Categoria Principal -->
+          <form v-if="categoryFormTab === 'principal'" @submit.prevent="submitParentCategory" class="cat-active-form">
+            <div class="form-group">
+              <label>Nome da Categoria Principal *</label>
+              <input
+                type="text"
+                v-model="parentCategoryForm.nome"
+                required
+                class="input-control"
+                placeholder="Ex: Peça, Acessório, Aparelho"
+              />
+            </div>
+            <div class="form-group mb-5">
+              <label>Tipo de Uso / Destino *</label>
+              <select v-model="parentCategoryForm.tipo_uso" required class="input-control select-control">
+                <option value="Ambos">Ambos (PDV & OS)</option>
+                <option value="Venda">Apenas Venda (PDV)</option>
+                <option value="OS">Apenas Ordem de Serviço (OS)</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-compra w-full btn-create-cat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              <span>Criar Categoria Principal</span>
+            </button>
+          </form>
+
+          <!-- Form: Subcategoria -->
+          <form v-else @submit.prevent="submitSubCategory" class="cat-active-form">
+            <div class="form-group">
+              <label>Categoria Principal (Pai) *</label>
+              <select v-model="subCategoryForm.id_pai" required class="input-control select-control">
+                <option value="">Selecione a categoria principal...</option>
+                <option v-for="cat in categoriesHierarchical" :key="cat.id_categoria" :value="cat.id_categoria">
+                  📁 {{ cat.nome }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nome da Subcategoria *</label>
+              <input
+                type="text"
+                v-model="subCategoryForm.nome"
+                required
+                class="input-control"
+                placeholder="Ex: Capinha, Película, Bateria, Tela"
+              />
+            </div>
+            <div class="form-group mb-5">
+              <label>Tipo de Uso <span class="text-xs text-muted font-normal">(Opcional — herda se vazio)</span></label>
+              <select v-model="subCategoryForm.tipo_uso" class="input-control select-control">
+                <option value="">Herdar da Categoria Principal</option>
+                <option value="Ambos">Ambos (PDV & OS)</option>
+                <option value="Venda">Apenas Venda (PDV)</option>
+                <option value="OS">Apenas Ordem de Serviço (OS)</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-compra w-full btn-create-cat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+              <span>Criar Subcategoria</span>
+            </button>
+          </form>
         </div>
+
       </div>
     </div>
 
@@ -375,8 +456,8 @@
                 <input type="number" v-model="form.qtd" required min="0" class="input-control" />
               </div>
               <div class="form-group">
-                <label>Estoque Mínimo *</label>
-                <input type="number" v-model="form.min" required min="1" class="input-control" />
+                <label>Estoque Mínimo <span class="text-xs text-muted font-normal">(0 ou em branco = sem aviso)</span></label>
+                <input type="number" v-model="form.min" min="0" class="input-control" placeholder="0 = Sem aviso" />
               </div>
             </div>
 
@@ -420,6 +501,7 @@ export default defineComponent({
     const categoriesFlat = ref([]);
 
     // Category Forms
+    const categoryFormTab = ref('principal');
     const parentCategoryForm = ref({ nome: '', tipo_uso: 'Ambos' });
     const subCategoryForm = ref({ nome: '', id_pai: '', tipo_uso: '' });
     const editingCategoryObj = ref(null);
@@ -430,7 +512,7 @@ export default defineComponent({
       descricao: '',
       id_categoria: '',
       qtd: 5,
-      min: 2,
+      min: 0,
       custo: 0.00,
       venda: 0.00
     });
@@ -497,7 +579,7 @@ export default defineComponent({
     const closeModal = () => {
       showAddModal.value = false;
       editingId.value = null;
-      form.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 5, min: 2, custo: 0, venda: 0 };
+      form.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 5, min: 0, custo: 0, venda: 0 };
     };
 
     const submitProduct = async () => {
@@ -510,9 +592,9 @@ export default defineComponent({
           codigo_barras: form.value.codigo_barras || null,
           descricao: form.value.descricao,
           id_categoria: form.value.id_categoria ? parseInt(form.value.id_categoria) : null,
-          estoque_atual: parseInt(form.value.qtd),
-          estoque_minimo: parseInt(form.value.min),
-          valor_custo: parseFloat(form.value.custo),
+          estoque_atual: parseInt(form.value.qtd) || 0,
+          estoque_minimo: parseInt(form.value.min) || 0,
+          valor_custo: parseFloat(form.value.custo) || 0,
           valor_venda: parseFloat(form.value.venda)
         };
 
@@ -653,6 +735,7 @@ export default defineComponent({
       irParaCompras,
       categoriesHierarchical,
       categoriesFlat,
+      categoryFormTab,
       parentCategoryForm,
       subCategoryForm,
       editingCategoryObj,
@@ -776,4 +859,321 @@ export default defineComponent({
   font-size: 0.75rem;
   border-radius: 6px;
 }
+
+/* ==========================================================================
+   CATEGORIES MANAGEMENT — MODERN REDESIGN
+   ========================================================================== */
+.categories-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .categories-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cat-list-card, .cat-form-card {
+  padding: 20px;
+}
+
+.cat-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.cat-form-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 22px;
+}
+
+.cat-count-badge {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.categories-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cat-tree-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.cat-tree-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.parent-cat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.parent-cat-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cat-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cat-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.parent-cat-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-count-tag {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.parent-cat-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.uso-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.uso-badge-sub {
+  font-size: 0.6rem;
+  opacity: 0.85;
+}
+
+.badge-ambos, :deep(.badge-ambos) {
+  background: rgba(167, 139, 250, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+}
+
+.badge-venda, :deep(.badge-venda) {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-os, :deep(.badge-os) {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.cat-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cat-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cat-action-btn svg, .cat-action-svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.cat-action-btn.edit-btn {
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  color: #c084fc;
+}
+
+.cat-action-btn.edit-btn:hover {
+  background: rgba(167, 139, 250, 0.25);
+  border-color: rgba(167, 139, 250, 0.5);
+  color: #e9d5ff;
+}
+
+.cat-action-btn.delete-btn {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+.cat-action-btn.delete-btn:hover {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+/* Subcategories Branch */
+.subcat-branch {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 12px 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.subcat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.subcat-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.subcat-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.branch-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.subcat-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-white);
+}
+
+.subcat-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cat-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.empty-cat-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+/* Segmented Tab Switcher */
+.cat-tab-switcher {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.cat-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cat-tab-btn:hover {
+  color: var(--text-white);
+}
+
+.cat-tab-btn.active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.tab-btn-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-create-cat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
 </style>
+

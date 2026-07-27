@@ -35,7 +35,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     estoque_minimo: {
       type: DataTypes.INTEGER,
-      defaultValue: 1,
+      defaultValue: 0,
     },
     valor_custo: {
       type: DataTypes.DECIMAL(10, 2),

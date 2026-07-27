@@ -461,8 +461,8 @@
                 <input type="number" v-model="prodForm.qtd" required min="0" class="input-control" />
               </div>
               <div class="form-group">
-                <label>Estoque Mínimo *</label>
-                <input type="number" v-model="prodForm.min" required min="1" class="input-control" />
+                <label>Estoque Mínimo <span class="text-xs text-muted font-normal">(0 ou em branco = sem aviso)</span></label>
+                <input type="number" v-model="prodForm.min" min="0" class="input-control" placeholder="0 = Sem aviso" />
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -521,7 +521,7 @@ export default defineComponent({
       descricao: '',
       id_categoria: '',
       qtd: 0,
-      min: 2,
+      min: 0,
       custo: 0.00,
       venda: 0.00
     });
@@ -609,7 +609,7 @@ export default defineComponent({
     };
 
     const abrirModalProduto = () => {
-      prodForm.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 0, min: 2, custo: 0, venda: 0 };
+      prodForm.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 0, min: 0, custo: 0, venda: 0 };
       showNovoProdutoModal.value = true;
     };
 
@@ -623,9 +623,9 @@ export default defineComponent({
           codigo_barras: prodForm.value.codigo_barras || null,
           descricao: prodForm.value.descricao,
           id_categoria: prodForm.value.id_categoria ? parseInt(prodForm.value.id_categoria) : null,
-          estoque_atual: parseInt(prodForm.value.qtd),
-          estoque_minimo: parseInt(prodForm.value.min),
-          valor_custo: parseFloat(prodForm.value.custo),
+          estoque_atual: parseInt(prodForm.value.qtd) || 0,
+          estoque_minimo: parseInt(prodForm.value.min) || 0,
+          valor_custo: parseFloat(prodForm.value.custo) || 0,
           valor_venda: parseFloat(prodForm.value.venda)
         };
         const novoProduto = await produtosService.criar(payload);

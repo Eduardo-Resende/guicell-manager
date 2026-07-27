@@ -181,7 +181,10 @@ const registrarEntrada = async (req, res) => {
 const alertasEstoque = async (req, res) => {
   try {
     const produtos = await Produto.findAll({
-      where: { estoque_atual: { [Op.lte]: sequelize.col('estoque_minimo') } },
+      where: {
+        estoque_minimo: { [Op.gt]: 0 },
+        estoque_atual: { [Op.lte]: sequelize.col('estoque_minimo') }
+      },
       include: [
         {
           model: Categoria,

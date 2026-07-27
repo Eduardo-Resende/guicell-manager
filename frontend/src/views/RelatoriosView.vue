@@ -254,11 +254,11 @@
               <tr v-for="p in estoqueReportData.produtos" :key="p.id_produto">
                 <td class="font-semibold text-white">{{ p.descricao }}</td>
                 <td>{{ p.categoriaRef ? p.categoriaRef.nome : 'Sem Categoria' }}</td>
-                <td :class="{ 'text-danger font-bold': p.estoque_atual <= p.estoque_minimo }">{{ p.estoque_atual }} un</td>
-                <td>{{ p.estoque_minimo }} un</td>
+                <td :class="{ 'text-danger font-bold': p.estoque_minimo > 0 && p.estoque_atual <= p.estoque_minimo }">{{ p.estoque_atual }} un</td>
+                <td>{{ p.estoque_minimo > 0 ? p.estoque_minimo + ' un' : '—' }}</td>
                 <td>R$ {{ parseFloat(p.valor_venda).toFixed(2) }}</td>
                 <td>
-                  <span v-if="p.estoque_atual <= p.estoque_minimo" class="badge badge-danger">Repor Urgente</span>
+                  <span v-if="p.estoque_minimo > 0 && p.estoque_atual <= p.estoque_minimo" class="badge badge-danger">Repor Urgente</span>
                   <span v-else class="badge badge-success">Estável</span>
                 </td>
               </tr>
