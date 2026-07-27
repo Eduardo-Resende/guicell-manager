@@ -5,13 +5,29 @@
         <h1 class="page-title">Ordens de Serviço</h1>
         <p class="page-subtitle">Gerencie o fluxo de reparo, orçamentos e garantias.</p>
       </div>
-      <button class="btn" @click="showAddModal = true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        <span>Nova OS</span>
-      </button>
+      <div class="flex gap-2 items-center">
+        <!-- Toggle de visualização -->
+        <div class="view-toggle">
+          <button :class="['toggle-btn', { active: viewMode === 'lista' }]" @click="viewMode = 'lista'" title="Visualização em Lista">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          </button>
+          <button :class="['toggle-btn', { active: viewMode === 'kanban' }]" @click="viewMode = 'kanban'" title="Visualização Kanban">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
+              <rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/><rect x="14" y="17" width="7" height="4" rx="1"/>
+            </svg>
+          </button>
+        </div>
+        <button class="btn" @click="showAddModal = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Nova OS</span>
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -21,9 +37,10 @@
           <label>Filtro por Status</label>
           <select v-model="filterStatus" class="input-control select-control">
             <option value="">Todos os Status</option>
-            <option value="Aguardando">Aguardando Diagnóstico</option>
-            <option value="Em Reparo">Em Reparo</option>
+            <option value="Aguardando Diagnóstico">Aguardando Diagnóstico</option>
+            <option value="Aguardando Cliente">Aguardando Cliente</option>
             <option value="Aguardando Peça">Aguardando Peça</option>
+            <option value="Em Reparo">Em Reparo</option>
             <option value="Concluído">Concluído</option>
             <option value="Entregue">Entregue</option>
             <option value="Cancelado">Cancelado</option>
@@ -56,8 +73,8 @@
       </div>
     </div>
 
-    <!-- OS Table -->
-    <div class="card table-card">
+    <!-- ======================== VISUALIZAÇÃO LISTA ======================== -->
+    <div v-if="viewMode === 'lista'" class="card table-card">
       <div class="table-responsive">
         <table>
           <thead>
@@ -98,6 +115,48 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ======================== VISUALIZAÇÃO KANBAN ======================== -->
+    <div v-if="viewMode === 'kanban'" class="kanban-board">
+      <div
+        v-for="col in kanbanColumns"
+        :key="col.status"
+        class="kanban-col"
+        @dragover.prevent
+        @drop="onDrop($event, col.status)"
+      >
+        <div class="kanban-col-header" :style="{ borderTopColor: col.color }">
+          <span class="kanban-col-title">{{ col.label }}</span>
+          <span class="kanban-col-count">{{ osForStatus(col.status).length }}</span>
+        </div>
+        <div class="kanban-col-body">
+          <div
+            v-for="os in osForStatus(col.status)"
+            :key="os.id"
+            class="kanban-card"
+            :class="{ 'kanban-card--overdue': isOverdue(os) }"
+            draggable="true"
+            @dragstart="onDragStart($event, os)"
+            @click="viewDetail(os)"
+          >
+            <div class="kanban-card-top">
+              <span class="kanban-card-num">#{{ os.numero }}</span>
+              <span v-if="isOverdue(os)" class="kanban-tag kanban-tag--late">Atrasada</span>
+            </div>
+            <div class="kanban-card-cliente">{{ os.cliente }}</div>
+            <div class="kanban-card-aparelho">{{ os.aparelho }}</div>
+            <div class="kanban-card-footer">
+              <span class="kanban-card-tecnico">{{ os.tecnico }}</span>
+              <span class="kanban-card-prazo" v-if="os.prazo !== 'Não definido'">{{ os.prazo }}</span>
+            </div>
+            <div class="kanban-card-valor">{{ os.total }}</div>
+          </div>
+          <div v-if="osForStatus(col.status).length === 0" class="kanban-col-empty">
+            Nenhuma OS
+          </div>
+        </div>
       </div>
     </div>
 
@@ -269,9 +328,10 @@
             <div class="form-group m-0">
               <label>Atualizar Status</label>
               <select v-model="selectedOS.status" class="input-control select-control" :disabled="isClosed">
-                <option value="Aguardando">Aguardando Diagnóstico</option>
-                <option value="Em Reparo">Em Reparo</option>
+                <option value="Aguardando Diagnóstico">Aguardando Diagnóstico</option>
+                <option value="Aguardando Cliente">Aguardando Cliente</option>
                 <option value="Aguardando Peça">Aguardando Peça</option>
+                <option value="Em Reparo">Em Reparo</option>
                 <option value="Concluído">Concluído</option>
                 <option value="Entregue">Entregue</option>
                 <option value="Cancelado">Cancelado</option>
@@ -318,6 +378,8 @@ export default defineComponent({
     const showDetailModal = ref(false);
     const selectedOS = ref(null);
     const newPartId = ref('');
+    const viewMode = ref('lista'); // 'lista' | 'kanban'
+    const draggedOS = ref(null);
 
     const ordens = ref([]);
     const mockClients = ref([]);
@@ -592,14 +654,63 @@ export default defineComponent({
 
     const getBadgeClass = (status) => {
       switch (status) {
-        case 'Aguardando': return 'badge-warning';
+        case 'Aguardando Diagnóstico': return 'badge-warning';
+        case 'Aguardando Cliente': return 'badge-purple';
         case 'Em Reparo': return 'badge-info';
-        case 'Aguardando Peça':
-        case 'Aguard. Peça': return 'badge-danger';
+        case 'Aguardando Peça': return 'badge-danger';
         case 'Concluído': return 'badge-success';
         case 'Entregue': return 'badge-success';
         case 'Cancelado': return 'badge-muted';
         default: return 'badge-muted';
+      }
+    };
+
+    // ── Kanban ──────────────────────────────────────────────────────────────────
+    const kanbanColumns = [
+      { status: 'Aguardando Diagnóstico', label: 'Aguardando Diagnóstico', color: '#f4a429' },
+      { status: 'Aguardando Cliente',     label: 'Aguardando Cliente',     color: '#a78bfa' },
+      { status: 'Aguardando Peça',        label: 'Aguardando Peça',        color: '#f87171' },
+      { status: 'Em Reparo',              label: 'Em Reparo',              color: '#38bdf8' },
+      { status: 'Concluído',              label: 'Concluído',              color: '#4ade80' },
+      { status: 'Entregue',               label: 'Entregue',               color: '#22c55e' },
+      { status: 'Cancelado',              label: 'Cancelado',              color: '#6b7280' },
+    ];
+
+    const osForStatus = (status) => ordens.value.filter(os => os.status === status);
+
+    const isOverdue = (os) => {
+      if (!os.prazo || os.prazo === 'Não definido') return false;
+      const parts = os.prazo.split('/');
+      if (parts.length !== 3) return false;
+      const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      return date < new Date();
+    };
+
+    const onDragStart = (event, os) => {
+      draggedOS.value = os;
+      event.dataTransfer.effectAllowed = 'move';
+    };
+
+    const onDrop = async (event, newStatus) => {
+      if (!draggedOS.value || draggedOS.value.status === newStatus) return;
+      if (['Entregue', 'Cancelado'].includes(draggedOS.value.status)) {
+        alert('Não é possível mover uma OS já finalizada.');
+        return;
+      }
+      try {
+        await osService.atualizarStatus(
+          draggedOS.value.id_os,
+          newStatus,
+          draggedOS.value.diagnostico,
+          draggedOS.value.parts.map(p => ({ id_produto: p.id, quantidade: 1, valor_unitario: p.preco })),
+          draggedOS.value.maoObra
+        );
+        draggedOS.value.status = newStatus;
+        await fetchOS();
+      } catch (err) {
+        alert('Erro ao mover OS: ' + (err.response?.data?.error || err.message));
+      } finally {
+        draggedOS.value = null;
       }
     };
 
@@ -620,12 +731,13 @@ export default defineComponent({
       showDetailModal,
       selectedOS,
       newPartId,
+      viewMode,
       form,
       mockClients,
       mockProducts,
       tecnicos,
       ordens,
-      filteredOS: ordens, // Use direct list from API
+      filteredOS: ordens,
       getBadgeClass,
       closeAddModal,
       submitOS,
@@ -637,7 +749,12 @@ export default defineComponent({
       fetchOS,
       clientDevices,
       selectedDeviceOption,
-      isClosed
+      isClosed,
+      kanbanColumns,
+      osForStatus,
+      isOverdue,
+      onDragStart,
+      onDrop,
     };
   }
 });
@@ -774,6 +891,243 @@ export default defineComponent({
   height: 18px;
   flex-shrink: 0;
   color: #f4a429;
+}
+
+.aparelho-hint {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.aparelho-hint-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(239, 160, 50, 0.08);
+  border-color: rgba(239, 160, 50, 0.35);
+  color: #f4a429;
+}
+
+.aparelho-hint-warn strong {
+  color: #f4a429;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  color: var(--text-white);
+  background: rgba(255,255,255,0.05);
+}
+
+.toggle-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+/* Kanban */
+.kanban-board {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  align-items: flex-start;
+  min-height: 400px;
+}
+
+.kanban-col {
+  flex: 0 0 230px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 280px);
+}
+
+.kanban-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-top: 3px solid var(--primary);
+  border-radius: 12px 12px 0 0;
+  gap: 8px;
+}
+
+.kanban-col-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.kanban-col-count {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-white);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.kanban-col-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.kanban-col-empty {
+  text-align: center;
+  padding: 24px 8px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+.kanban-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: grab;
+  transition: all 0.18s;
+  user-select: none;
+}
+
+.kanban-card:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+.kanban-card--overdue {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.05);
+}
+
+.kanban-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.kanban-card-num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.kanban-tag {
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kanban-tag--late {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.kanban-card-cliente {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-white);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kanban-card-aparelho {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kanban-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.kanban-card-tecnico {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.kanban-card-prazo {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kanban-card-valor {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-hover);
+  text-align: right;
+}
+
+/* Badge purple para Aguardando Cliente */
+:deep(.badge-purple), .badge-purple {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.3);
 }
 
 .aparelho-hint {

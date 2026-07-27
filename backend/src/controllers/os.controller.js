@@ -79,7 +79,7 @@ const criar = async (req, res) => {
     const os = await OrdemServico.create({
       numero_os, id_cliente, id_aparelho, id_tecnico,
       defeito_relatado, diagnostico, valor_orcado, prazo_estimado,
-      status: 'Aguardando',
+      status: 'Aguardando Diagnóstico',
       data_abertura: new Date(),
     });
     return res.status(201).json(os);
@@ -158,7 +158,7 @@ const atualizarStatus = async (req, res) => {
       return res.status(404).json({ error: 'OS não encontrada.' });
     }
 
-    const statusValidos = ['Aguardando', 'Em Reparo', 'Aguardando Peça', 'Concluído', 'Entregue', 'Cancelado'];
+    const statusValidos = ['Aguardando Diagnóstico', 'Aguardando Cliente', 'Em Reparo', 'Aguardando Peça', 'Concluído', 'Entregue', 'Cancelado'];
     if (status && !statusValidos.includes(status)) {
       await t.rollback();
       return res.status(400).json({ error: 'Status inválido.' });
@@ -297,7 +297,7 @@ const dashboard = async (req, res) => {
     const fimDia = new Date(new Date().setHours(23, 59, 59, 999));
 
     const [osAbertas, osConcluidas, prodEstoqueMinimo, statusCounts] = await Promise.all([
-      OrdemServico.count({ where: { status: { [Op.in]: ['Aguardando', 'Em Reparo', 'Aguardando Peça'] } } }),
+      OrdemServico.count({ where: { status: { [Op.in]: ['Aguardando Diagnóstico', 'Aguardando Cliente', 'Em Reparo', 'Aguardando Peça'] } } }),
       OrdemServico.count({ where: { status: { [Op.in]: ['Concluído', 'Entregue'] }, data_fechamento: { [Op.between]: [inicioDia, fimDia] } } }),
       Produto.count({ where: { estoque_atual: { [Op.lte]: sequelize.col('estoque_minimo') } } }),
       OrdemServico.findAll({

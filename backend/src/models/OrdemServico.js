@@ -49,6 +49,8 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.ENUM(
         'Aguardando',
+        'Aguardando Diagnóstico',
+        'Aguardando Cliente',
         'Em Reparo',
         'Aguardando Peça',
         'Concluído',
@@ -56,7 +58,7 @@ module.exports = (sequelize, DataTypes) => {
         'Cancelado'
       ),
       allowNull: false,
-      defaultValue: 'Aguardando',
+      defaultValue: 'Aguardando Diagnóstico',
     },
     valor_orcado: {
       type: DataTypes.DECIMAL(10, 2),
