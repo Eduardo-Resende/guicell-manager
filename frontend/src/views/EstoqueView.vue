@@ -6,7 +6,7 @@
         <p class="page-subtitle">Controle de peças de reposição e acessórios com alerta de nível crítico.</p>
       </div>
       <div class="flex gap-2">
-        <button class="btn btn-secondary" @click="showAddEntryModal = true">
+        <button class="btn btn-secondary" @click="irParaCompras">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
@@ -398,57 +398,22 @@
         </form>
       </div>
     </div>
-
-    <!-- Modal: Registrar Entrada Manual -->
-    <div v-if="showAddEntryModal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Lançar Entrada no Estoque</h3>
-          <button class="close-btn" @click="showAddEntryModal = false">&times;</button>
-        </div>
-        <form @submit.prevent="submitEntry">
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Selecione o Item *</label>
-              <select v-model="entryForm.produtoId" required class="input-control select-control">
-                <option value="">Selecione o Produto</option>
-                <option v-for="p in products" :key="p.id" :value="p.id">{{ p.descricao }} (Atual: {{ p.qtd }})</option>
-              </select>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div class="form-group m-0">
-                <label>Quantidade a Adicionar *</label>
-                <input type="number" v-model="entryForm.qtd" required min="1" class="input-control" />
-              </div>
-              <div class="form-group m-0">
-                <label>Origem / Fornecedor *</label>
-                <input type="text" v-model="entryForm.origem" required class="input-control" placeholder="Ex: Fornecedor X" />
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="showAddEntryModal = false">Cancelar</button>
-            <button type="submit" class="btn">Confirmar Entrada</button>
-          </div>
-        </form>
-      </div>
-    </div>
   </div>
 </template>
 
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { produtosService, categoriasService } from '../services/index.js';
 
 export default defineComponent({
   name: 'EstoqueView',
   setup() {
+    const router = useRouter();
     const activeTab = ref('list');
     const searchQuery = ref('');
     const selectedCategoryFilter = ref('');
     const showAddModal = ref(false);
-    const showAddEntryModal = ref(false);
     const editingId = ref(null);
     const products = ref([]);
     const categoriesHierarchical = ref([]);
@@ -470,11 +435,9 @@ export default defineComponent({
       venda: 0.00
     });
 
-    const entryForm = ref({
-      produtoId: '',
-      qtd: 1,
-      origem: ''
-    });
+    const irParaCompras = () => {
+      router.push('/compras');
+    };
 
     const getMovementLogs = () => {
       const stored = localStorage.getItem('guicell_movement_logs');
@@ -591,36 +554,6 @@ export default defineComponent({
       showAddModal.value = true;
     };
 
-    const submitEntry = async () => {
-      if (!entryForm.value.produtoId || !entryForm.value.qtd) {
-        alert('Selecione o produto e a quantidade.');
-        return;
-      }
-      try {
-        await produtosService.registrarEntrada(entryForm.value.produtoId, entryForm.value.qtd);
-        const prodObj = products.value.find(p => p.id_produto === parseInt(entryForm.value.produtoId));
-        if (prodObj) {
-          const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
-          const tecnicoNome = userObj ? userObj.nome : 'Gerente Padrão';
-          movementLogs.value.unshift({
-            id: Date.now(),
-            data: new Date().toLocaleString('pt-BR'),
-            produto: prodObj.descricao,
-            tipo: 'Entrada',
-            qtd: parseInt(entryForm.value.qtd),
-            origem: entryForm.value.origem || 'Entrada manual',
-            tecnico: tecnicoNome
-          });
-          localStorage.setItem('guicell_movement_logs', JSON.stringify(movementLogs.value));
-        }
-        await fetchProducts();
-        showAddEntryModal.value = false;
-        entryForm.value = { produtoId: '', qtd: 1, origem: '' };
-      } catch (err) {
-        alert(err.response?.data?.error || 'Erro ao registrar entrada de estoque.');
-      }
-    };
-
     const submitParentCategory = async () => {
       if (!parentCategoryForm.value.nome) return;
       try {
@@ -709,17 +642,15 @@ export default defineComponent({
       searchQuery,
       selectedCategoryFilter,
       showAddModal,
-      showAddEntryModal,
       editingId,
       form,
-      entryForm,
       products,
       filteredProducts: products, // direct search bind
       sortedLogs,
       closeModal,
       submitProduct,
       editProduct,
-      submitEntry,
+      irParaCompras,
       categoriesHierarchical,
       categoriesFlat,
       parentCategoryForm,

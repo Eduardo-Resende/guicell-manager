@@ -9,7 +9,8 @@ const osRoutes = require('./routes/os.routes');
 const produtosRoutes = require('./routes/produtos.routes');
 const aparelhosRoutes = require('./routes/aparelhos.routes');
 const categoriasRoutes = require('./routes/categorias.routes');
-const { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter } = require('./routes/outros.routes');
+const fornecedoresRoutes = require('./routes/fornecedores.routes');
+const { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter, comprasRouter } = require('./routes/outros.routes');
 
 const app = express();
 
@@ -46,6 +47,8 @@ app.use('/api/caixa', caixaRouter);
 app.use('/api/relatorios', relatoriosRouter);
 app.use('/api/usuarios', usuariosRouter);
 app.use('/api/categorias', categoriasRoutes);
+app.use('/api/fornecedores', fornecedoresRoutes);
+app.use('/api/compras', comprasRouter);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

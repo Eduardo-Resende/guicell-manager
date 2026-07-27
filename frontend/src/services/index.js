@@ -89,3 +89,17 @@ export const categoriasService = {
   atualizar: (id, dados) => api.put(`/categorias/${id}`, dados).then(r => r.data),
   remover: (id) => api.delete(`/categorias/${id}`).then(r => r.data),
 };
+
+export const fornecedoresService = {
+  listar: (params) => api.get('/fornecedores', { params }).then(r => r.data),
+  buscarPorId: (id) => api.get(`/fornecedores/${id}`).then(r => r.data),
+  criar: (dados) => api.post('/fornecedores', dados).then(r => r.data),
+  atualizar: (id, dados) => api.put(`/fornecedores/${id}`, dados).then(r => r.data),
+  toggleAtivo: (id) => api.patch(`/fornecedores/${id}/toggle-ativo`).then(r => r.data),
+};
+
+export const comprasService = {
+  listar: (filtros) => api.get('/compras', { params: filtros }).then(r => r.data),
+  buscarPorId: (id) => api.get(`/compras/${id}`).then(r => r.data),
+  criar: (dados) => api.post('/compras', dados).then(r => r.data),
+};

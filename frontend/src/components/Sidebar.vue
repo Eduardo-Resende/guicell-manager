@@ -91,6 +91,16 @@ const EstoqueIcon = {
   `
 };
 
+const ComprasIcon = {
+  template: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  `
+};
+
 const VendasIcon = {
   template: `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -149,6 +159,7 @@ export default defineComponent({
         { view: 'clientes', label: 'Clientes', icon: markRaw(ClientesIcon) },
         { view: 'os', label: 'Ordens de Serviço', icon: markRaw(OsIcon) },
         { view: 'estoque', label: 'Estoque', icon: markRaw(EstoqueIcon) },
+        { view: 'compras', label: 'Compras', icon: markRaw(ComprasIcon) },
         { view: 'vendas', label: 'Vendas (PDV)', icon: markRaw(VendasIcon) },
         { view: 'caixa', label: 'Caixa', icon: markRaw(CaixaIcon) },
         { view: 'relatorios', label: 'Relatórios', icon: markRaw(RelatoriosIcon) },

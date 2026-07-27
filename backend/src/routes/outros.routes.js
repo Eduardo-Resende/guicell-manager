@@ -3,6 +3,7 @@ const vendCtrl = require('../controllers/vendas.controller');
 const caixaCtrl = require('../controllers/caixa.controller');
 const relCtrl = require('../controllers/relatorios.controller');
 const usuCtrl = require('../controllers/usuarios.controller');
+const comprasCtrl = require('../controllers/compras.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 
 // Vendas
@@ -38,4 +39,11 @@ usuariosRouter.post('/', usuCtrl.criar);
 usuariosRouter.put('/:id', usuCtrl.atualizar);
 usuariosRouter.patch('/:id/toggle-ativo', usuCtrl.toggleAtivo);
 
-module.exports = { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter };
+// Compras
+const comprasRouter = Router();
+comprasRouter.use(authenticate);
+comprasRouter.get('/', comprasCtrl.listar);
+comprasRouter.get('/:id', comprasCtrl.buscarPorId);
+comprasRouter.post('/', comprasCtrl.criar);
+
+module.exports = { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter, comprasRouter };

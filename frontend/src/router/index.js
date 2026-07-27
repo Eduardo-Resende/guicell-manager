@@ -4,6 +4,7 @@ import DashboardView from '../views/DashboardView.vue';
 import ClientesView from '../views/ClientesView.vue';
 import OsView from '../views/OsView.vue';
 import EstoqueView from '../views/EstoqueView.vue';
+import ComprasView from '../views/ComprasView.vue';
 import VendasView from '../views/VendasView.vue';
 import CaixaView from '../views/CaixaView.vue';
 import RelatoriosView from '../views/RelatoriosView.vue';
@@ -16,6 +17,7 @@ const routes = [
   { path: '/clientes', name: 'Clientes', component: ClientesView, meta: { requiresAuth: true } },
   { path: '/os', name: 'OS', component: OsView, meta: { requiresAuth: true } },
   { path: '/estoque', name: 'Estoque', component: EstoqueView, meta: { requiresAuth: true } },
+  { path: '/compras', name: 'Compras', component: ComprasView, meta: { requiresAuth: true } },
   { path: '/vendas', name: 'Vendas', component: VendasView, meta: { requiresAuth: true } },
   { path: '/caixa', name: 'Caixa', component: CaixaView, meta: { requiresAuth: true } },
   { path: '/relatorios', name: 'Relatorios', component: RelatoriosView, meta: { requiresAuth: true } },

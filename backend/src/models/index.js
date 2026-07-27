@@ -26,6 +26,9 @@ const ItemVenda = require('./ItemVenda')(sequelize, Sequelize.DataTypes);
 const Caixa = require('./Caixa')(sequelize, Sequelize.DataTypes);
 const Marca = require('./Marca')(sequelize, Sequelize.DataTypes);
 const Modelo = require('./Modelo')(sequelize, Sequelize.DataTypes);
+const Fornecedor = require('./Fornecedor')(sequelize, Sequelize.DataTypes);
+const Compra = require('./Compra')(sequelize, Sequelize.DataTypes);
+const ItemCompra = require('./ItemCompra')(sequelize, Sequelize.DataTypes);
 
 // Run associations
 const models = {
@@ -41,6 +44,9 @@ const models = {
   Caixa,
   Marca,
   Modelo,
+  Fornecedor,
+  Compra,
+  ItemCompra,
 };
 
 Object.values(models).forEach((model) => {
