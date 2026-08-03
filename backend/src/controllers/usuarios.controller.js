@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { Usuario } = require('../models');
+const { Op } = require('sequelize');
 
 const listar = async (req, res) => {
   try {
@@ -70,7 +71,7 @@ const toggleAtivo = async (req, res) => {
 const listarTecnicos = async (req, res) => {
   try {
     const tecnicos = await Usuario.findAll({
-      where: { perfil: 'Técnico', ativo: true },
+      where: { perfil: { [Op.in]: ['Técnico', 'Gerente'] }, ativo: true },
       attributes: ['id_usuario', 'nome'],
       order: [['nome', 'ASC']],
     });

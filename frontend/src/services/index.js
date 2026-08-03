@@ -43,7 +43,7 @@ export const osService = {
   listar: (filtros) => api.get('/ordens-servico', { params: filtros }).then(r => r.data),
   buscarPorId: (id) => api.get(`/ordens-servico/${id}`).then(r => r.data),
   criar: (dados) => api.post('/ordens-servico', dados).then(r => r.data),
-  atualizarStatus: (id, status, diagnostico, itens, valor_orcado) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado }).then(r => r.data),
+  atualizarStatus: (id, status, diagnostico, itens, valor_orcado, forma_pagamento) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, forma_pagamento }).then(r => r.data),
   fechar: (id, dados) => api.post(`/ordens-servico/${id}/fechar`, dados).then(r => r.data),
 };
 

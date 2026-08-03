@@ -154,7 +154,7 @@ const atualizarItensEstoque = async (osId, novosItens, transaction) => {
 const atualizarStatus = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { status, diagnostico, itens, valor_orcado } = req.body;
+    const { status, diagnostico, itens, valor_orcado, forma_pagamento } = req.body;
     const os = await OrdemServico.findByPk(req.params.id, { transaction: t });
     if (!os) {
       await t.rollback();
@@ -192,6 +192,7 @@ const atualizarStatus = async (req, res) => {
     if (status && !['Concluído', 'Entregue'].includes(status)) updatePayload.data_fechamento = null;
     if (diagnostico !== undefined) updatePayload.diagnostico = diagnostico;
     if (valor_orcado !== undefined) updatePayload.valor_orcado = valor_orcado;
+    if (forma_pagamento !== undefined) updatePayload.forma_pagamento = forma_pagamento;
 
     await os.update(updatePayload, { transaction: t });
 

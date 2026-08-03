@@ -251,19 +251,62 @@
             <span>OS com status <strong>{{ selectedOS.originalStatus }}</strong> — somente leitura. Não é possível editar uma OS já finalizada.</span>
           </div>
 
-          <div class="info-block card mb-4">
-            <h4 class="mb-2">Informações Operacionais</h4>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-              <div><strong>Cliente:</strong> {{ selectedOS.cliente }}</div>
-              <div><strong>Aparelho:</strong> {{ selectedOS.aparelho }}</div>
-              <div><strong>Técnico:</strong> {{ selectedOS.tecnico }}</div>
-              <div><strong>Prazo:</strong> {{ selectedOS.prazo }}</div>
+          <!-- Informações Operacionais (Design Aprimorado) -->
+          <div class="os-info-container mb-4">
+            <div class="os-info-header">
+              <span class="os-info-title">Informações Operacionais</span>
             </div>
-            <div class="text-sm mt-2 defeito-box" v-if="selectedOS.defeito">
-              <strong>Defeito Relatado:</strong> {{ selectedOS.defeito }}
+            
+            <div class="os-info-grid">
+              <div class="os-info-card">
+                <div class="os-info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="os-info-data">
+                  <span class="os-info-label">Cliente</span>
+                  <span class="os-info-val font-semibold">{{ selectedOS.cliente }}</span>
+                </div>
+              </div>
+
+              <div class="os-info-card">
+                <div class="os-info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                </div>
+                <div class="os-info-data">
+                  <span class="os-info-label">Aparelho</span>
+                  <span class="os-info-val font-semibold">{{ selectedOS.aparelho }}</span>
+                </div>
+              </div>
+
+              <div class="os-info-card">
+                <div class="os-info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </div>
+                <div class="os-info-data">
+                  <span class="os-info-label">Técnico Responsável</span>
+                  <span class="os-info-val">{{ selectedOS.tecnico }}</span>
+                </div>
+              </div>
+
+              <div class="os-info-card">
+                <div class="os-info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+                <div class="os-info-data">
+                  <span class="os-info-label">Prazo Estimado</span>
+                  <span class="os-info-val">{{ selectedOS.prazo }}</span>
+                </div>
+              </div>
             </div>
-            <div class="text-sm mt-2 defeito-box defeito-vazio" v-else>
-              <em>Defeito relatado não informado.</em>
+
+            <!-- Defeito Relatado -->
+            <div class="os-defeito-card mt-3">
+              <div class="os-defeito-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:#f59e0b"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>Defeito Relatado pelo Cliente</span>
+              </div>
+              <p class="os-defeito-text" v-if="selectedOS.defeito">{{ selectedOS.defeito }}</p>
+              <p class="os-defeito-text text-muted italic" v-else>Nenhum defeito relatado cadastrado.</p>
             </div>
           </div>
 
@@ -365,9 +408,10 @@
                 <option value="Cancelado">Cancelado</option>
               </select>
             </div>
-            <div class="form-group m-0">
-              <label>Forma de Pagamento (para Fechamento)</label>
-              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed || selectedOS.status !== 'Entregue'">
+            <div class="form-group m-0" v-if="['Concluído', 'Entregue'].includes(selectedOS.status)">
+              <label>Forma de Pagamento *</label>
+              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed">
+                <option value="">Selecione a Forma de Pagamento...</option>
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Cartão">Cartão de Crédito/Débito</option>
                 <option value="PIX">PIX</option>
@@ -390,14 +434,23 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Visualizador de OS (tela cheia) ── -->
+  <OsViewer
+    v-if="showViewer && osParaViewer"
+    :os="osParaViewer"
+    @close="showViewer = false"
+  />
 </template>
 
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { osService, clientesService, produtosService, usuariosService, aparelhosService } from '../services/index.js';
+import OsViewer from '../components/OsViewer.vue';
 
 export default defineComponent({
   name: 'OsView',
+  components: { OsViewer },
   setup() {
     const searchQuery = ref('');
     const filterStatus = ref('');
@@ -408,6 +461,10 @@ export default defineComponent({
     const newPartId = ref('');
     const viewMode = ref('lista'); // 'lista' | 'kanban'
     const draggedOS = ref(null);
+
+    // Visualizador de OS
+    const showViewer = ref(false);
+    const osParaViewer = ref(null);
 
     const ordens = ref([]);
     const mockClients = ref([]);
@@ -477,7 +534,7 @@ export default defineComponent({
             })),
             defeito: os.defeito_relatado || os.defeito || '',
             diagnostico: os.diagnostico || '',
-            formaPagamento: os.forma_pagamento || 'PIX',
+            formaPagamento: os.forma_pagamento || '',
             id_cliente: os.id_cliente,
             id_aparelho: os.id_aparelho,
             id_tecnico: os.id_tecnico,
@@ -551,7 +608,7 @@ export default defineComponent({
           defeito: detailedOS.defeito_relatado || os.defeito || '',
           maoObra: parseFloat(detailedOS.valor_orcado || os.maoObra || 0),
           desconto: parseFloat(detailedOS.desconto || 0),
-          formaPagamento: detailedOS.forma_pagamento || os.formaPagamento || 'PIX',
+          formaPagamento: detailedOS.forma_pagamento || os.formaPagamento || '',
           diagnostico: detailedOS.diagnostico || '',
           parts: (detailedOS.itens || []).map(it => ({
             id: it.id_produto,
@@ -559,7 +616,13 @@ export default defineComponent({
             preco: parseFloat(it.valor_unitario),
             qtd: it.quantidade || 1
           })),
-          partsTotal: (detailedOS.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * (it.quantidade || 1), 0)
+          partsTotal: (detailedOS.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * (it.quantidade || 1), 0),
+          // Dados extras para o visualizador/impressão
+          imei: detailedOS.aparelho?.imei || '',
+          email_cliente: detailedOS.cliente?.email || '',
+          telefone_cliente: detailedOS.cliente?.telefone || '',
+          cpf_cnpj_cliente: detailedOS.cliente?.cpf_cnpj || '',
+          data_abertura_raw: detailedOS.data_abertura || new Date().toISOString(),
         };
         originalParts.value = [...selectedOS.value.parts];
         showDetailModal.value = true;
@@ -609,6 +672,11 @@ export default defineComponent({
         return;
       }
 
+      if (['Concluído', 'Entregue'].includes(selectedOS.value.status) && !selectedOS.value.formaPagamento) {
+        alert('Por favor, selecione a Forma de Pagamento.');
+        return;
+      }
+
       try {
         const id = selectedOS.value.id_os;
         const desconto = selectedOS.value.desconto || 0;
@@ -636,7 +704,8 @@ export default defineComponent({
               quantidade: p.qtd || 1,
               valor_unitario: p.preco
             })),
-            selectedOS.value.maoObra
+            selectedOS.value.maoObra,
+            selectedOS.value.formaPagamento
           );
         }
 
@@ -696,7 +765,8 @@ export default defineComponent({
     };
 
     const imprimirComprovante = (os) => {
-      alert(`Simulação de Impressão de Comprovante da OS #${os.numero} gerada com sucesso.`);
+      osParaViewer.value = os;
+      showViewer.value = true;
     };
 
     const getBadgeClass = (status) => {
@@ -742,22 +812,31 @@ export default defineComponent({
       if (!draggedOS.value || draggedOS.value.status === newStatus) return;
       if (['Entregue', 'Cancelado'].includes(draggedOS.value.status)) {
         alert('Não é possível mover uma OS já finalizada.');
+        draggedOS.value = null;
         return;
       }
-      try {
-        await osService.atualizarStatus(
-          draggedOS.value.id_os,
-          newStatus,
-          draggedOS.value.diagnostico,
-          draggedOS.value.parts.map(p => ({ id_produto: p.id, quantidade: 1, valor_unitario: p.preco })),
-          draggedOS.value.maoObra
-        );
-        draggedOS.value.status = newStatus;
-        await fetchOS();
-      } catch (err) {
-        alert('Erro ao mover OS: ' + (err.response?.data?.error || err.message));
-      } finally {
-        draggedOS.value = null;
+
+      const targetOS = draggedOS.value;
+      draggedOS.value = null;
+
+      if (['Concluído', 'Entregue'].includes(newStatus)) {
+        await viewDetail(targetOS);
+        if (selectedOS.value) {
+          selectedOS.value.status = newStatus;
+        }
+      } else {
+        try {
+          await osService.atualizarStatus(
+            targetOS.id_os,
+            newStatus,
+            targetOS.diagnostico,
+            targetOS.parts.map(p => ({ id_produto: p.id, quantidade: p.qtd || 1, valor_unitario: p.preco })),
+            targetOS.maoObra
+          );
+          await fetchOS();
+        } catch (err) {
+          alert('Erro ao mover OS: ' + (err.response?.data?.error || err.message));
+        }
       }
     };
 
@@ -804,6 +883,8 @@ export default defineComponent({
       isOverdue,
       onDragStart,
       onDrop,
+      showViewer,
+      osParaViewer,
     };
   }
 });
@@ -895,6 +976,104 @@ export default defineComponent({
 
 .max-w-lg {
   max-width: 600px;
+}
+
+/* Informações Operacionais (Novo Design) */
+.os-info-container {
+  background: var(--bg-card, #0f1322);
+  border: 1px solid var(--border, #1e293b);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.os-info-header {
+  margin-bottom: 12px;
+}
+
+.os-info-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted, #8892b0);
+}
+
+.os-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.os-info-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.os-info-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(0, 143, 57, 0.12);
+  color: var(--primary-hover, #00aa44);
+  flex-shrink: 0;
+}
+
+.os-info-data {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.os-info-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #8892b0);
+  font-weight: 600;
+}
+
+.os-info-val {
+  font-size: 0.88rem;
+  color: var(--text-white, #ffffff);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Defeito Relatado Card */
+.os-defeito-card {
+  background: rgba(245, 158, 11, 0.05);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.os-defeito-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #f59e0b;
+  margin-bottom: 6px;
+}
+
+.os-defeito-text {
+  font-size: 0.875rem;
+  color: var(--text-normal, #e2e8f0);
+  line-height: 1.5;
+  margin: 0;
 }
 
 .info-block {
