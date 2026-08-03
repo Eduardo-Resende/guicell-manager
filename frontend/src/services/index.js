@@ -41,10 +41,12 @@ export const aparelhosService = {
 export const osService = {
   dashboard: () => api.get('/ordens-servico/dashboard').then(r => r.data),
   listar: (filtros) => api.get('/ordens-servico', { params: filtros }).then(r => r.data),
+  listarPendentes: () => api.get('/ordens-servico/pendentes').then(r => r.data),
   buscarPorId: (id) => api.get(`/ordens-servico/${id}`).then(r => r.data),
   criar: (dados) => api.post('/ordens-servico', dados).then(r => r.data),
   atualizarStatus: (id, status, diagnostico, itens, valor_orcado, forma_pagamento) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, forma_pagamento }).then(r => r.data),
   fechar: (id, dados) => api.post(`/ordens-servico/${id}/fechar`, dados).then(r => r.data),
+  pagar: (id, forma_pagamento) => api.post(`/ordens-servico/${id}/pagar`, { forma_pagamento }).then(r => r.data),
 };
 
 export const produtosService = {
@@ -58,13 +60,16 @@ export const produtosService = {
 
 export const vendasService = {
   listar: (filtros) => api.get('/vendas', { params: filtros }).then(r => r.data),
+  listarPendentes: () => api.get('/vendas/pendentes').then(r => r.data),
   criar: (dados) => api.post('/vendas', dados).then(r => r.data),
+  pagar: (id, forma_pagamento) => api.post(`/vendas/${id}/pagar`, { forma_pagamento }).then(r => r.data),
 };
 
 export const caixaService = {
   listar: (filtros) => api.get('/caixa', { params: filtros }).then(r => r.data),
   resumoDia: () => api.get('/caixa/resumo-dia').then(r => r.data),
   abrir: (valor) => api.post('/caixa/abrir', { valor }).then(r => r.data),
+  fechar: () => api.post('/caixa/fechar').then(r => r.data),
   registrarManual: (dados) => api.post('/caixa', dados).then(r => r.data),
 };
 

@@ -192,7 +192,10 @@ const atualizarStatus = async (req, res) => {
     if (status && !['Concluído', 'Entregue'].includes(status)) updatePayload.data_fechamento = null;
     if (diagnostico !== undefined) updatePayload.diagnostico = diagnostico;
     if (valor_orcado !== undefined) updatePayload.valor_orcado = valor_orcado;
-    if (forma_pagamento !== undefined) updatePayload.forma_pagamento = forma_pagamento;
+    if (forma_pagamento !== undefined) {
+      updatePayload.forma_pagamento = forma_pagamento;
+      updatePayload.status_pagamento = forma_pagamento === 'Fiado' ? 'pendente' : 'pago';
+    }
 
     await os.update(updatePayload, { transaction: t });
 
@@ -245,32 +248,36 @@ const fechar = async (req, res) => {
       }
     }
 
+    const isFiado = forma_pagamento === 'Fiado';
+
     // Fechar a OS
     await os.update({
       status: 'Entregue',
       valor_final,
       forma_pagamento,
       data_fechamento: new Date(),
+      status_pagamento: isFiado ? 'pendente' : 'pago',
     }, { transaction: t });
 
-    // Lançar no caixa com proteção contra entradas duplicadas (RF14)
-    const caixaExistente = await Caixa.findOne({ where: { id_os: os.id_os }, transaction: t });
-    if (caixaExistente) {
-      // Atualizar lançamento existente com o valor correto (evita duplicata)
-      await caixaExistente.update({
-        valor: valor_final,
-        id_usuario: req.usuario.id_usuario,
-      }, { transaction: t });
-    } else {
-      await Caixa.create({
-        id_usuario: req.usuario.id_usuario,
-        data: new Date(),
-        tipo: 'entrada',
-        valor: valor_final,
-        descricao: `Fechamento da OS ${os.numero_os}`,
-        categoria: 'OS',
-        id_os: os.id_os,
-      }, { transaction: t });
+    // Lançar no caixa apenas se não for fiado
+    if (!isFiado) {
+      const caixaExistente = await Caixa.findOne({ where: { id_os: os.id_os }, transaction: t });
+      if (caixaExistente) {
+        await caixaExistente.update({
+          valor: valor_final,
+          id_usuario: req.usuario.id_usuario,
+        }, { transaction: t });
+      } else {
+        await Caixa.create({
+          id_usuario: req.usuario.id_usuario,
+          data: new Date(),
+          tipo: 'entrada',
+          valor: valor_final,
+          descricao: `Fechamento da OS ${os.numero_os}`,
+          categoria: 'OS',
+          id_os: os.id_os,
+        }, { transaction: t });
+      }
     }
 
     await t.commit();
@@ -290,6 +297,74 @@ const fechar = async (req, res) => {
   } catch (err) {
     await t.rollback();
     console.error('[OS] Erro ao fechar:', err);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+};
+
+// ─── Listar OS com pagamento pendente (fiado) ──────────────────────────
+const listarOsPendentes = async (req, res) => {
+  try {
+    const ordens = await OrdemServico.findAll({
+      where: {
+        [Op.or]: [
+          { status_pagamento: 'pendente' },
+          { forma_pagamento: 'Fiado' },
+        ],
+        status: { [Op.ne]: 'Cancelado' },
+      },
+      include: [
+        { model: Cliente, as: 'cliente', attributes: ['id_cliente', 'nome', 'telefone'] },
+        { model: Aparelho, as: 'aparelho', attributes: ['id_aparelho', 'marca', 'modelo'] },
+        { model: Usuario, as: 'tecnico', attributes: ['id_usuario', 'nome'] },
+      ],
+      order: [['criado_em', 'DESC']],
+    });
+    return res.json(ordens);
+  } catch (err) {
+    console.error('[OS] Erro ao listar pendentes:', err);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+};
+
+// ─── Pagar OS fiado ──────────────────────────────────────────────────────
+const pagarOsFiado = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { forma_pagamento } = req.body;
+
+    if (!forma_pagamento || forma_pagamento === 'Fiado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Informe uma forma de pagamento válida (não pode ser Fiado).' });
+    }
+
+    const os = await OrdemServico.findByPk(id, { transaction: t });
+    if (!os) {
+      await t.rollback();
+      return res.status(404).json({ error: 'OS não encontrada.' });
+    }
+    if (os.status_pagamento !== 'pendente') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta OS já foi paga.' });
+    }
+
+    await os.update({ status_pagamento: 'pago', forma_pagamento }, { transaction: t });
+
+    await Caixa.create({
+      id_usuario: req.usuario.id_usuario,
+      data: new Date(),
+      tipo: 'entrada',
+      valor: parseFloat(os.valor_final),
+      descricao: `Recebimento OS ${os.numero_os} (Fiado)`,
+      categoria: 'OS',
+      id_os: os.id_os,
+    }, { transaction: t });
+
+    await t.commit();
+    return res.json({ message: 'Pagamento registrado com sucesso.', os });
+  } catch (err) {
+    await t.rollback();
+    console.error('[OS] Erro ao pagar fiado:', err);
     return res.status(500).json({ error: 'Erro interno.' });
   }
 };
@@ -342,4 +417,4 @@ const dashboard = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizarStatus, fechar, dashboard };
+module.exports = { listar, buscarPorId, criar, atualizarStatus, fechar, listarOsPendentes, pagarOsFiado, dashboard };

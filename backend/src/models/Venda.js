@@ -44,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DECIMAL(10, 2),
       defaultValue: 0,
     },
+    status: {
+      type: DataTypes.ENUM('pago', 'pendente'),
+      allowNull: false,
+      defaultValue: 'pago',
+    },
   }, {
     sequelize,
     modelName: 'Venda',

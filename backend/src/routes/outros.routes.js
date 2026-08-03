@@ -9,8 +9,10 @@ const { authenticate, authorize } = require('../middlewares/auth.middleware');
 // Vendas
 const vendasRouter = Router();
 vendasRouter.use(authenticate);
+vendasRouter.get('/pendentes', vendCtrl.listarPendentes);
 vendasRouter.get('/', vendCtrl.listar);
 vendasRouter.post('/', vendCtrl.criar);
+vendasRouter.post('/:id/pagar', vendCtrl.pagarFiado);
 
 // Caixa
 const caixaRouter = Router();
@@ -18,6 +20,7 @@ caixaRouter.use(authenticate);
 caixaRouter.get('/resumo-dia', caixaCtrl.resumoDia);
 caixaRouter.get('/', caixaCtrl.listar);
 caixaRouter.post('/abrir', caixaCtrl.abrirCaixa);
+caixaRouter.post('/fechar', caixaCtrl.fecharCaixa);
 caixaRouter.post('/', caixaCtrl.registrarManual);
 
 

@@ -105,13 +105,20 @@ const relatorioVendas = async (req, res) => {
 const relatorioCaixa = async (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
+    const where = {
+      data: getPeriodo(data_inicio, data_fim),
+      categoria: {
+        [Op.notIn]: ['Abertura de Caixa', 'Fechamento de Caixa']
+      }
+    };
+
     const movimentacoes = await Caixa.findAll({
-      where: { data: getPeriodo(data_inicio, data_fim) },
+      where,
       order: [['data', 'ASC']],
     });
 
     const totais = await Caixa.findAll({
-      where: { data: getPeriodo(data_inicio, data_fim) },
+      where,
       attributes: ['tipo', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
       group: ['tipo'],
       raw: true,

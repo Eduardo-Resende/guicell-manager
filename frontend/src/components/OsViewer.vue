@@ -40,6 +40,11 @@
         <span>Enviar E-mail</span>
       </button>
 
+      <button class="osv-action-btn osv-btn-whatsapp" @click="openWhatsapp" title="Enviar por WhatsApp" :disabled="isSendingWhatsapp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        <span>WhatsApp</span>
+      </button>
+
       <button class="osv-action-btn osv-btn-print" @click="handlePrint" title="Imprimir OS" :disabled="isGenerating">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         <span>Imprimir</span>
@@ -235,6 +240,39 @@
       </div>
     </div>
 
+    <!-- ── Modal de WhatsApp ── -->
+    <div v-if="showWhatsappModal" class="osv-email-overlay" @click.self="showWhatsappModal = false">
+      <div class="osv-email-modal">
+        <div class="osv-email-modal-header">
+          <div class="osv-email-icon-wrap" style="background:#e8f9ef;color:#25d366">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </div>
+          <h3>Enviar OS por WhatsApp</h3>
+        </div>
+        <p class="osv-email-desc">
+          A OS <strong>#{{ os?.numero }}</strong> será enviada em formato PDF para o WhatsApp abaixo.
+        </p>
+        <div class="osv-email-field">
+          <label>WhatsApp do Cliente (com DDD)</label>
+          <input
+            type="text"
+            v-model="whatsappTo"
+            placeholder="Ex: 62999999999"
+            class="osv-email-input"
+            @keyup.enter="sendWhatsapp"
+          />
+        </div>
+        <div class="osv-email-actions">
+          <button class="osv-email-cancel" @click="showWhatsappModal = false" :disabled="isSendingWhatsapp">Cancelar</button>
+          <button class="osv-email-send" style="background:#25d366;border-color:#25d366" @click="sendWhatsapp" :disabled="isSendingWhatsapp || !whatsappTo">
+            <span v-if="isSendingWhatsapp" class="osv-spinner-sm"></span>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            {{ isSendingWhatsapp ? 'Enviando...' : 'Enviar Agora' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Toast de notificação ── -->
     <transition name="osv-toast">
       <div v-if="toast.show" :class="['osv-toast', 'osv-toast-' + toast.type]">
@@ -293,6 +331,10 @@ export default defineComponent({
     const showEmailModal = ref(false);
     const emailTo = ref(props.os?.email_cliente || '');
     const isSendingEmail = ref(false);
+
+    const showWhatsappModal = ref(false);
+    const whatsappTo = ref(props.os?.telefone_cliente || '');
+    const isSendingWhatsapp = ref(false);
 
     const toast = ref({ show: false, message: '', type: 'success' });
     let toastTimer = null;
@@ -420,6 +462,50 @@ export default defineComponent({
       }
     };
 
+    const openWhatsapp = () => {
+      whatsappTo.value = props.os?.telefone_cliente || '';
+      showWhatsappModal.value = true;
+    };
+
+    const sendWhatsapp = async () => {
+      if (!whatsappTo.value) return showToast('Informe o WhatsApp de destino.', 'error');
+      isSendingWhatsapp.value = true;
+      try {
+        const blob = await generatePdfBlob();
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        try {
+          await api.post('/ordens-servico/enviar-whatsapp', {
+            id_os: props.os.id_os,
+            telefone: whatsappTo.value,
+            numero_os: props.os.numero,
+            pdf_base64: base64,
+          });
+          showToast('WhatsApp enviado com sucesso!');
+        } catch (apiErr) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `OS-${props.os?.numero?.toString().padStart(5, '0')}.pdf`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          showToast('Erro ao enviar via API. PDF baixado.', 'error');
+        }
+
+        showWhatsappModal.value = false;
+      } catch (e) {
+        console.error(e);
+        showToast('Erro ao processar envio de WhatsApp.', 'error');
+      } finally {
+        isSendingWhatsapp.value = false;
+      }
+    };
+
     const openEmail = () => {
       emailTo.value = props.os?.email_cliente || '';
       showEmailModal.value = true;
@@ -494,6 +580,9 @@ export default defineComponent({
       showEmailModal,
       emailTo,
       isSendingEmail,
+      showWhatsappModal,
+      whatsappTo,
+      isSendingWhatsapp,
       toast,
       valorFinal,
       isFinalized,
@@ -506,6 +595,8 @@ export default defineComponent({
       handleDownload,
       openEmail,
       sendEmail,
+      openWhatsapp,
+      sendWhatsapp,
       zoomIn,
       zoomOut,
     };

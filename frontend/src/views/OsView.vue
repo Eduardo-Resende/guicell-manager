@@ -20,6 +20,15 @@
             </svg>
           </button>
         </div>
+        <button
+          class="btn btn-fiado-header"
+          :class="{ active: viewMode === 'pendentes' }"
+          @click="viewMode = viewMode === 'pendentes' ? 'lista' : 'pendentes'"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Recebimentos Pendentes
+          <span v-if="osPendentes.length > 0" class="badge-count">{{ osPendentes.length }}</span>
+        </button>
         <button class="btn" @click="showAddModal = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -31,9 +40,9 @@
     </div>
 
     <!-- Filters -->
-    <div class="card filters-card">
+    <div v-if="viewMode !== 'pendentes'" class="card filters-card">
       <div class="filters-grid">
-        <div class="form-group m-0">
+        <div class="form-group m-0" v-if="viewMode === 'lista'">
           <label>Filtro por Status</label>
           <select v-model="filterStatus" class="input-control select-control">
             <option value="">Todos os Status</option>
@@ -119,7 +128,7 @@
     </div>
 
     <!-- ======================== VISUALIZAÇÃO KANBAN ======================== -->
-    <div v-if="viewMode === 'kanban'" class="kanban-board">
+    <div v-else-if="viewMode === 'kanban'" class="kanban-board">
       <div
         v-for="col in kanbanColumns"
         :key="col.status"
@@ -157,6 +166,48 @@
             Nenhuma OS
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ======================== VISUALIZAÇÃO RECEBIMENTOS PENDENTES ======================== -->
+    <div v-else-if="viewMode === 'pendentes'" class="card fiado-section">
+      <div class="fiado-header">
+        <div>
+          <h3>Recebimentos Pendentes de OS</h3>
+          <p class="text-muted" style="font-size:0.875rem;margin-top:4px">OS entregues com pagamento fiado ainda não recebido. O estoque já foi debitado na entrega.</p>
+        </div>
+        <span class="badge-pendentes" v-if="osPendentes.length > 0">{{ osPendentes.length }} pendente{{ osPendentes.length > 1 ? 's' : '' }}</span>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>OS</th>
+              <th>Data Entrega</th>
+              <th>Cliente</th>
+              <th>Aparelho</th>
+              <th>Técnico</th>
+              <th>Valor a Receber</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="os in osPendentes" :key="os.id_os" class="fiado-row">
+              <td class="font-bold text-white">{{ os.numero_os }}</td>
+              <td class="text-muted">{{ os.data_fechamento ? new Date(os.data_fechamento).toLocaleDateString('pt-BR') : '-' }}</td>
+              <td class="text-white font-semibold">{{ os.cliente?.nome }}</td>
+              <td class="text-muted">{{ os.aparelho?.marca }} {{ os.aparelho?.modelo }}</td>
+              <td class="text-muted">{{ os.tecnico?.nome || '-' }}</td>
+              <td class="font-bold text-warning">R$ {{ parseFloat(os.valor_final || 0).toFixed(2) }}</td>
+              <td>
+                <button class="btn-success-outline" @click="openPagarOsModal(os)">Receber</button>
+              </td>
+            </tr>
+            <tr v-if="osPendentes.length === 0">
+              <td colspan="7" class="text-center text-muted py-6">Nenhum recebimento pendente.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -415,6 +466,7 @@
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Cartão">Cartão de Crédito/Débito</option>
                 <option value="PIX">PIX</option>
+                <option value="Fiado">Fiado (Receber Depois)</option>
               </select>
             </div>
           </div>
@@ -431,6 +483,45 @@
           <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Cancelar' }}</button>
           <button v-if="!isClosed" type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── Modal: Confirmar Recebimento OS Fiado ── -->
+  <div v-if="showPagarOsModal && osSelecionada" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Receber Pagamento — OS</h3>
+        <button class="close-btn" @click="closePagarOsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3">OS <strong class="text-white">{{ osSelecionada.numero_os }}</strong> — {{ osSelecionada.cliente?.nome }}</p>
+        <div class="resumo-pagar">
+          <div class="resumo-item">
+            <span class="text-muted">Aparelho</span>
+            <span class="text-white">{{ osSelecionada.aparelho?.marca }} {{ osSelecionada.aparelho?.modelo }}</span>
+          </div>
+          <div class="resumo-total-row">
+            <span class="font-bold">Total a Receber</span>
+            <span class="text-warning font-bold text-lg">R$ {{ parseFloat(osSelecionada.valor_final || 0).toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="form-group mt-4 m-0">
+          <label>Forma de Pagamento *</label>
+          <select v-model="formaPagamentoOs" class="input-control select-control">
+            <option value="">Selecione...</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Cartão">Cartão de Crédito/Débito</option>
+            <option value="PIX">PIX</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="closePagarOsModal">Cancelar</button>
+        <button class="btn-success-solid" :disabled="!formaPagamentoOs || pagandoOs" @click="confirmarPagamentoOs">
+          {{ pagandoOs ? 'Registrando...' : 'Confirmar Recebimento' }}
+        </button>
       </div>
     </div>
   </div>
@@ -465,6 +556,49 @@ export default defineComponent({
     // Visualizador de OS
     const showViewer = ref(false);
     const osParaViewer = ref(null);
+
+    // Recebimentos Pendentes (Fiado OS)
+    const showPendentesPanel = ref(false);
+    const osPendentes = ref([]);
+    const showPagarOsModal = ref(false);
+    const osSelecionada = ref(null);
+    const formaPagamentoOs = ref('');
+    const pagandoOs = ref(false);
+
+    const fetchOsPendentes = async () => {
+      try {
+        const data = await osService.listarPendentes();
+        osPendentes.value = data;
+      } catch (err) {
+        console.error('[OS] Erro ao buscar pendentes:', err);
+      }
+    };
+
+    const openPagarOsModal = (os) => {
+      osSelecionada.value = os;
+      formaPagamentoOs.value = '';
+      showPagarOsModal.value = true;
+    };
+
+    const closePagarOsModal = () => {
+      showPagarOsModal.value = false;
+      osSelecionada.value = null;
+    };
+
+    const confirmarPagamentoOs = async () => {
+      if (!formaPagamentoOs.value) return;
+      pagandoOs.value = true;
+      try {
+        await osService.pagar(osSelecionada.value.id_os, formaPagamentoOs.value);
+        alert('Pagamento registrado! R$ ' + parseFloat(osSelecionada.value.valor_final).toFixed(2) + ' via ' + formaPagamentoOs.value + ' lancado no caixa.');
+        closePagarOsModal();
+        await fetchOsPendentes();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao registrar pagamento.');
+      } finally {
+        pagandoOs.value = false;
+      }
+    };
 
     const ordens = ref([]);
     const mockClients = ref([]);
@@ -796,11 +930,14 @@ export default defineComponent({
     const osForStatus = (status) => ordens.value.filter(os => os.status === status);
 
     const isOverdue = (os) => {
+      if (['Concluído', 'Entregue', 'Cancelado'].includes(os.status)) return false;
       if (!os.prazo || os.prazo === 'Não definido') return false;
       const parts = os.prazo.split('/');
       if (parts.length !== 3) return false;
       const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      return date < new Date();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return date < today;
     };
 
     const onDragStart = (event, os) => {
@@ -847,6 +984,7 @@ export default defineComponent({
     onMounted(() => {
       fetchOS();
       loadFormDependencies();
+      fetchOsPendentes();
     });
 
     return {
@@ -885,6 +1023,15 @@ export default defineComponent({
       onDrop,
       showViewer,
       osParaViewer,
+      showPendentesPanel,
+      osPendentes,
+      showPagarOsModal,
+      osSelecionada,
+      formaPagamentoOs,
+      pagandoOs,
+      openPagarOsModal,
+      closePagarOsModal,
+      confirmarPagamentoOs,
     };
   }
 });
@@ -1586,4 +1733,36 @@ export default defineComponent({
 }
 .btn-compra:hover { opacity: 0.88; }
 .btn-compra:disabled { opacity: 0.4; cursor: not-allowed; }
+/* ── Fiado OS styles ──────────────────────────────────────────────────────── */
+.btn-fiado-header {
+  position: relative; border: 1px solid #f59e0b; color: #f59e0b;
+  background: rgba(245,158,11,0.08); display: flex; align-items: center; gap: 6px;
+  border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600;
+  font-size: 0.875rem; transition: background 0.2s;
+}
+.btn-fiado-header:hover, .btn-fiado-header.active { background: rgba(245,158,11,0.18); }
+.badge-count {
+  background: #f59e0b; color: #000; font-size: 0.7rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 999px; line-height: 1.5;
+}
+.os-pendentes-panel { }
+.fiado-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.badge-pendentes {
+  background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35);
+  font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+}
+.fiado-row:hover td { background: rgba(245,158,11,0.04); }
+.text-warning { color: #f59e0b; }
+.btn-success-outline {
+  background: transparent; border: 1px solid var(--success, #22c55e); color: var(--success, #22c55e);
+  border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.15s;
+  white-space: nowrap; padding: 6px 14px; font-size: 0.8rem;
+}
+.btn-success-outline:hover { background: rgba(34,197,94,0.15); }
+.resumo-pagar { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.resumo-item { display: flex; justify-content: space-between; padding: 8px 14px; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+.resumo-total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: rgba(255,255,255,0.04); }
+.btn-success-solid { background: var(--success, #22c55e); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
+.btn-success-solid:hover { opacity: 0.85; }
+.btn-success-solid:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

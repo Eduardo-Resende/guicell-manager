@@ -275,14 +275,16 @@ export default defineComponent({
     const fetchCaixa = async () => {
       loading.value = true;
       try {
+        const d = new Date();
+        const hojeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const [resumoData, listData] = await Promise.all([
           caixaService.resumoDia(),
-          caixaService.listar(),
+          caixaService.listar({ data_inicio: hojeStr, data_fim: hojeStr }),
         ]);
         resumo.value = resumoData;
         caixaAberto.value = resumoData.caixaAberto;
         logs.value = listData
-          .filter(log => log.categoria !== 'Abertura de Caixa')
+          .filter(log => log.categoria !== 'Abertura de Caixa' && log.categoria !== 'Fechamento de Caixa')
           .map(log => ({
             id: log.id_caixa,
             hora: new Date(log.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
@@ -346,9 +348,15 @@ export default defineComponent({
     };
 
     // ── Fechar Caixa ──────────────────────────────────────────────────────────
-    const confirmarFechamento = () => {
-      showFecharModal.value = false;
-      alert(`✅ Caixa fechado!\n\nResumo do dia:\n• Abertura: R$ ${fmt(resumo.value.abertura)}\n• Entradas: R$ ${fmt(resumo.value.entradas)}\n• Saídas: R$ ${fmt(resumo.value.saidas)}\n• Saldo Final: R$ ${fmt(resumo.value.saldo)}`);
+    const confirmarFechamento = async () => {
+      try {
+        await caixaService.fechar();
+        showFecharModal.value = false;
+        alert(`✅ Caixa fechado com sucesso!\n\nResumo do dia:\n• Abertura: R$ ${fmt(resumo.value.abertura)}\n• Entradas: R$ ${fmt(resumo.value.entradas)}\n• Saídas: R$ ${fmt(resumo.value.saidas)}\n• Saldo Final: R$ ${fmt(resumo.value.saldo)}`);
+        await fetchCaixa();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao fechar o caixa.');
+      }
     };
 
     onMounted(fetchCaixa);

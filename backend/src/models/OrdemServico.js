@@ -85,6 +85,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
+    status_pagamento: {
+      type: DataTypes.ENUM('pago', 'pendente'),
+      allowNull: false,
+      defaultValue: 'pago',
+    },
   }, {
     sequelize,
     modelName: 'OrdemServico',
