@@ -39,13 +39,22 @@ const buscarPorId = async (req, res) => {
   }
 };
 
+const sanitizeDigits = (str) => (str ? String(str).replace(/\D/g, '') : null);
+
 const criar = async (req, res) => {
   try {
     const { nome, cpf_cnpj, telefone, email, endereco } = req.body;
-    if (!nome || !telefone) {
+    const cleanTelefone = sanitizeDigits(telefone);
+    if (!nome || !cleanTelefone) {
       return res.status(400).json({ error: 'Nome e telefone são obrigatórios.' });
     }
-    const cliente = await Cliente.create({ nome, cpf_cnpj, telefone, email, endereco });
+    const cliente = await Cliente.create({
+      nome: nome.trim(),
+      cpf_cnpj: sanitizeDigits(cpf_cnpj),
+      telefone: cleanTelefone,
+      email: email ? email.trim() : null,
+      endereco: endereco ? endereco.trim() : null,
+    });
     return res.status(201).json(cliente);
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -59,7 +68,13 @@ const atualizar = async (req, res) => {
   try {
     const cliente = await Cliente.findByPk(req.params.id);
     if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
-    await cliente.update(req.body);
+    
+    const data = { ...req.body };
+    if (data.telefone) data.telefone = sanitizeDigits(data.telefone);
+    if (data.cpf_cnpj) data.cpf_cnpj = sanitizeDigits(data.cpf_cnpj);
+    if (data.nome) data.nome = data.nome.trim();
+
+    await cliente.update(data);
     return res.json(cliente);
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno.' });

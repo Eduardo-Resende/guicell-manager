@@ -47,10 +47,10 @@
           <tbody>
             <tr v-for="client in filteredClients" :key="client.id">
               <td class="font-semibold text-white">{{ client.nome }}</td>
-              <td>{{ client.cpf }}</td>
-              <td>{{ client.telefone }}</td>
-              <td>{{ client.email }}</td>
-              <td>{{ client.endereco }}</td>
+              <td>{{ formatCpfCnpj(client.cpf) || '-' }}</td>
+              <td>{{ formatPhone(client.telefone) || '-' }}</td>
+              <td>{{ client.email || '-' }}</td>
+              <td>{{ client.endereco || '-' }}</td>
               <td class="text-right">
                 <div class="actions-wrapper">
                   <button
@@ -111,11 +111,11 @@
             <div class="grid grid-cols-2 gap-3">
               <div class="form-group">
                 <label>CPF / CNPJ</label>
-                <input type="text" v-model="form.cpf" class="input-control" placeholder="000.000.000-00" />
+                <input type="text" :value="form.cpf" @input="onCpfInput" class="input-control" placeholder="000.000.000-00 ou 00.000.000/0000-00" maxlength="18" />
               </div>
               <div class="form-group">
                 <label>Telefone *</label>
-                <input type="text" v-model="form.telefone" required class="input-control" placeholder="(62) 99999-9999" />
+                <input type="text" :value="form.telefone" @input="onPhoneInput" required class="input-control" placeholder="(62) 99999-9999" maxlength="15" />
               </div>
             </div>
 
@@ -414,6 +414,7 @@
 <script>
 import { defineComponent, ref, onMounted, watch } from 'vue';
 import { clientesService, aparelhosService } from '../services/index.js';
+import { formatPhone, formatCpfCnpj, unmask, validatePhone, validateCpfCnpj } from '../utils/formatters.js';
 
 export default defineComponent({
   name: 'ClientesView',
@@ -607,6 +608,14 @@ export default defineComponent({
 
     watch(searchQuery, () => fetchClients());
 
+    const onPhoneInput = (e) => {
+      form.value.telefone = formatPhone(e.target.value);
+    };
+
+    const onCpfInput = (e) => {
+      form.value.cpf = formatCpfCnpj(e.target.value);
+    };
+
     const closeModal = () => {
       showAddModal.value = false;
       editingId.value = null;
@@ -618,13 +627,26 @@ export default defineComponent({
         alert('Nome e telefone são obrigatórios.');
         return;
       }
+      
+      const cleanPhone = unmask(form.value.telefone);
+      if (!validatePhone(cleanPhone)) {
+        alert('Telefone inválido. Informe o DDD e número completo com 10 ou 11 dígitos.');
+        return;
+      }
+
+      const cleanCpfCnpj = unmask(form.value.cpf);
+      if (cleanCpfCnpj && !validateCpfCnpj(cleanCpfCnpj)) {
+        alert('CPF ou CNPJ inválido. Verifique a quantidade de dígitos (11 para CPF ou 14 para CNPJ).');
+        return;
+      }
+
       try {
         const payload = {
-          nome: form.value.nome,
-          cpf_cnpj: form.value.cpf,
-          telefone: form.value.telefone,
-          email: form.value.email,
-          endereco: form.value.endereco
+          nome: form.value.nome.trim(),
+          cpf_cnpj: cleanCpfCnpj || null,
+          telefone: cleanPhone,
+          email: form.value.email ? form.value.email.trim() : null,
+          endereco: form.value.endereco ? form.value.endereco.trim() : null
         };
         if (editingId.value) {
           await clientesService.atualizar(editingId.value, payload);
@@ -642,8 +664,8 @@ export default defineComponent({
       editingId.value = client.id_cliente;
       form.value = {
         nome: client.nome,
-        cpf: client.cpf_cnpj || '',
-        telefone: client.telefone,
+        cpf: formatCpfCnpj(client.cpf_cnpj || ''),
+        telefone: formatPhone(client.telefone || ''),
         email: client.email || '',
         endereco: client.endereco || ''
       };
@@ -825,7 +847,10 @@ export default defineComponent({
       clearModelo,
       onModeloBlur,
       buscarModeloAPIExterna,
-      // actions
+      formatPhone,
+      formatCpfCnpj,
+      onPhoneInput,
+      onCpfInput,
       closeModal,
       submitClient,
       editClient,

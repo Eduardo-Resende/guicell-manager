@@ -283,8 +283,8 @@
               <tbody>
                 <tr v-for="f in fornecedores" :key="f.id_fornecedor">
                   <td class="font-semibold text-white">{{ f.nome }}</td>
-                  <td class="text-muted font-mono text-sm">{{ f.cnpj || '—' }}</td>
-                  <td>{{ f.telefone || '—' }}</td>
+                  <td class="text-muted font-mono text-sm">{{ formatCNPJ(f.cnpj) || '—' }}</td>
+                  <td>{{ formatPhone(f.telefone) || '—' }}</td>
                   <td>{{ f.contato || '—' }}</td>
                   <td>
                     <span :class="['badge', f.ativo ? 'badge-success' : 'badge-muted']">
@@ -335,11 +335,11 @@
             <div class="grid grid-cols-2 gap-3">
               <div class="form-group">
                 <label>CNPJ</label>
-                <input type="text" v-model="fornForm.cnpj" class="input-control" placeholder="00.000.000/0000-00" />
+                <input type="text" :value="fornForm.cnpj" @input="onCnpjInput" class="input-control" placeholder="00.000.000/0000-00" maxlength="18" />
               </div>
               <div class="form-group">
                 <label>Telefone</label>
-                <input type="text" v-model="fornForm.telefone" class="input-control" placeholder="(00) 00000-0000" />
+                <input type="text" :value="fornForm.telefone" @input="onPhoneInput" class="input-control" placeholder="(00) 00000-0000" maxlength="15" />
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -489,6 +489,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { comprasService, fornecedoresService, produtosService, categoriasService } from '../services/index.js';
+import { formatCNPJ, formatPhone, unmask, validateCpfCnpj, validatePhone } from '../utils/formatters.js';
 
 export default defineComponent({
   name: 'ComprasView',
@@ -717,12 +718,39 @@ export default defineComponent({
       showFornecedorModal.value = true;
     };
 
+    const onCnpjInput = (e) => {
+      fornForm.value.cnpj = formatCNPJ(e.target.value);
+    };
+
+    const onPhoneInput = (e) => {
+      fornForm.value.telefone = formatPhone(e.target.value);
+    };
+
     const salvarFornecedor = async () => {
+      const cleanCnpj = unmask(fornForm.value.cnpj);
+      if (cleanCnpj && !validateCpfCnpj(cleanCnpj)) {
+        alert('CNPJ inválido. Verifique se possui 14 dígitos.');
+        return;
+      }
+
+      const cleanPhone = unmask(fornForm.value.telefone);
+      if (cleanPhone && !validatePhone(cleanPhone)) {
+        alert('Telefone inválido. Informe DDD e número completo (10 ou 11 dígitos).');
+        return;
+      }
+
       try {
+        const payload = {
+          ...fornForm.value,
+          nome: fornForm.value.nome ? fornForm.value.nome.trim() : '',
+          cnpj: cleanCnpj || null,
+          telefone: cleanPhone || null,
+        };
+
         if (editandoFornecedorId.value) {
-          await fornecedoresService.atualizar(editandoFornecedorId.value, fornForm.value);
+          await fornecedoresService.atualizar(editandoFornecedorId.value, payload);
         } else {
-          await fornecedoresService.criar(fornForm.value);
+          await fornecedoresService.criar(payload);
         }
         fornForm.value = novoFornForm();
         editandoFornecedorId.value = null;
@@ -737,8 +765,8 @@ export default defineComponent({
       editandoFornecedorId.value = f.id_fornecedor;
       fornForm.value = {
         nome: f.nome,
-        cnpj: f.cnpj || '',
-        telefone: f.telefone || '',
+        cnpj: formatCNPJ(f.cnpj || ''),
+        telefone: formatPhone(f.telefone || ''),
         email: f.email || '',
         contato: f.contato || '',
         endereco: f.endereco || '',
@@ -818,6 +846,10 @@ export default defineComponent({
       abrirNovoFornecedor,
       salvarFornecedor,
       editarFornecedor,
+      onCnpjInput,
+      onPhoneInput,
+      formatCNPJ,
+      formatPhone,
       cancelarEdicaoFornecedor,
       toggleFornecedor,
       nomeFornecedor,

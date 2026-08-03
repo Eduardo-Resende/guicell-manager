@@ -116,7 +116,7 @@
                   Dados do Cliente
                 </div>
                 <div class="os-doc-field"><span class="os-doc-field-label">Nome</span><span class="os-doc-field-val">{{ os?.cliente }}</span></div>
-                <div class="os-doc-field" v-if="os.telefone_cliente"><span class="os-doc-field-label">Telefone</span><span class="os-doc-field-val">{{ os.telefone_cliente }}</span></div>
+                <div class="os-doc-field" v-if="os.telefone_cliente"><span class="os-doc-field-label">Telefone</span><span class="os-doc-field-val">{{ formatPhone(os.telefone_cliente) }}</span></div>
                 <div class="os-doc-field" v-if="os.email_cliente"><span class="os-doc-field-label">E-mail</span><span class="os-doc-field-val">{{ os.email_cliente }}</span></div>
               </div>
 
@@ -256,9 +256,11 @@
           <label>WhatsApp do Cliente (com DDD)</label>
           <input
             type="text"
-            v-model="whatsappTo"
-            placeholder="Ex: 62999999999"
+            :value="whatsappTo"
+            @input="onWhatsappInput"
+            placeholder="(62) 99999-9999"
             class="osv-email-input"
+            maxlength="15"
             @keyup.enter="sendWhatsapp"
           />
         </div>
@@ -285,8 +287,9 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import api from '../services/api.js';
+import { formatPhone, unmask, validatePhone } from '../utils/formatters.js';
 
 // Carrega jsPDF + html2canvas via CDN se necessário
 let jspdfLoaded = false;
@@ -462,13 +465,20 @@ export default defineComponent({
       }
     };
 
+    const onWhatsappInput = (e) => {
+      whatsappTo.value = formatPhone(e.target.value);
+    };
+
     const openWhatsapp = () => {
-      whatsappTo.value = props.os?.telefone_cliente || '';
+      whatsappTo.value = formatPhone(props.os?.telefone_cliente || '');
       showWhatsappModal.value = true;
     };
 
     const sendWhatsapp = async () => {
-      if (!whatsappTo.value) return showToast('Informe o WhatsApp de destino.', 'error');
+      const cleanNum = unmask(whatsappTo.value);
+      if (!cleanNum || !validatePhone(cleanNum)) {
+        return showToast('Informe um número de WhatsApp válido com DDD.', 'error');
+      }
       isSendingWhatsapp.value = true;
       try {
         const blob = await generatePdfBlob();
@@ -482,7 +492,7 @@ export default defineComponent({
         try {
           await api.post('/ordens-servico/enviar-whatsapp', {
             id_os: props.os.id_os,
-            telefone: whatsappTo.value,
+            telefone: cleanNum,
             numero_os: props.os.numero,
             pdf_base64: base64,
           });
@@ -590,11 +600,13 @@ export default defineComponent({
       dataEmissao,
       statusSlug,
       formatMoney,
+      formatPhone,
       getBadgeClass,
       handlePrint,
       handleDownload,
       openEmail,
       sendEmail,
+      onWhatsappInput,
       openWhatsapp,
       sendWhatsapp,
       zoomIn,
