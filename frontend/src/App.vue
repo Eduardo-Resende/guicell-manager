@@ -75,7 +75,7 @@ export default defineComponent({
 }
 
 .app-layout.logged-in .main-content {
-  padding-left: 300px;
+  padding-left: 96px;
 }
 
 .main-content.full-width {

@@ -191,7 +191,7 @@
         
         <!-- Footer nested inside white form-panel -->
         <footer class="login-footer">
-          <p>© 2024 <span class="highlight-green-footer">Guicell Manager ERP</span>. Todos os direitos reservados.</p>
+          <p>© 2026 <span class="highlight-green-footer">Guicell Manager ERP</span>. Todos os direitos reservados.</p>
         </footer>
       </div>
     </div>
