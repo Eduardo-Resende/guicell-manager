@@ -7,6 +7,7 @@ module.exports = (sequelize, DataTypes) => {
       Caixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario', as: 'usuario' });
       Caixa.belongsTo(models.OrdemServico, { foreignKey: 'id_os', as: 'ordemServico' });
       Caixa.belongsTo(models.Venda, { foreignKey: 'id_venda', as: 'venda' });
+      Caixa.belongsTo(models.SessaoCaixa, { foreignKey: 'id_sessao', as: 'sessao' });
     }
   }
 
@@ -51,6 +52,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       references: { model: 'vendas', key: 'id_venda' },
+    },
+    id_sessao: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'sessoes_caixa', key: 'id_sessao' },
     },
   }, {
     sequelize,
