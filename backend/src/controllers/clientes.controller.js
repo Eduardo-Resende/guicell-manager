@@ -1,4 +1,4 @@
-const { Cliente, Aparelho, OrdemServico } = require('../models');
+const { Cliente, Aparelho, Movimentacao } = require('../models');
 const { Op } = require('sequelize');
 
 const listar = async (req, res) => {
@@ -26,8 +26,9 @@ const buscarPorId = async (req, res) => {
       include: [
         { model: Aparelho, as: 'aparelhos' },
         {
-          model: OrdemServico, as: 'ordensServico',
-          order: [['data_abertura', 'DESC']],
+          model: Movimentacao, as: 'movimentacoes',
+          where: { origem: 'os' },
+          required: false,
           limit: 10,
         },
       ],

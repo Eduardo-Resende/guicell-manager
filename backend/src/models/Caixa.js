@@ -4,10 +4,9 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Caixa extends Model {
     static associate(models) {
-      Caixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario', as: 'usuario' });
-      Caixa.belongsTo(models.OrdemServico, { foreignKey: 'id_os', as: 'ordemServico' });
-      Caixa.belongsTo(models.Venda, { foreignKey: 'id_venda', as: 'venda' });
-      Caixa.belongsTo(models.SessaoCaixa, { foreignKey: 'id_sessao', as: 'sessao' });
+      Caixa.belongsTo(models.Usuario,       { foreignKey: 'id_usuario',       as: 'usuario' });
+      Caixa.belongsTo(models.SessaoCaixa,   { foreignKey: 'id_sessao',        as: 'sessao' });
+      Caixa.belongsTo(models.Movimentacao,  { foreignKey: 'id_movimentacao',  as: 'movimentacao' });
     }
   }
 
@@ -43,15 +42,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(50),
       allowNull: true,
     },
-    id_os: {
+    id_movimentacao: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: { model: 'ordens_servico', key: 'id_os' },
-    },
-    id_venda: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: { model: 'vendas', key: 'id_venda' },
+      references: { model: 'movimentacao', key: 'id_movimentacao' },
     },
     id_sessao: {
       type: DataTypes.INTEGER,

@@ -5,8 +5,7 @@ module.exports = (sequelize, DataTypes) => {
   class Cliente extends Model {
     static associate(models) {
       Cliente.hasMany(models.Aparelho, { foreignKey: 'id_cliente', as: 'aparelhos' });
-      Cliente.hasMany(models.OrdemServico, { foreignKey: 'id_cliente', as: 'ordensServico' });
-      Cliente.hasMany(models.Venda, { foreignKey: 'id_cliente', as: 'vendas' });
+      Cliente.hasMany(models.Movimentacao, { foreignKey: 'id_cliente', as: 'movimentacoes' });
     }
   }
 
