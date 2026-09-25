@@ -648,13 +648,25 @@ export default defineComponent({
           email: form.value.email ? form.value.email.trim() : null,
           endereco: form.value.endereco ? form.value.endereco.trim() : null
         };
-        if (editingId.value) {
+        const isEditing = !!editingId.value;
+        let novoCliente = null;
+
+        if (isEditing) {
           await clientesService.atualizar(editingId.value, payload);
         } else {
-          await clientesService.criar(payload);
+          novoCliente = await clientesService.criar(payload);
         }
         await fetchClients();
         closeModal();
+
+        if (!isEditing && novoCliente) {
+          const clientData = {
+            ...novoCliente,
+            id: novoCliente.id_cliente,
+            cpf: novoCliente.cpf_cnpj
+          };
+          await openAparelhosModal(clientData, true);
+        }
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao salvar cliente.');
       }
@@ -673,12 +685,15 @@ export default defineComponent({
     };
 
     // ── Aparelhos ───────────────────────────────────────────────────
-    const openAparelhosModal = async (client) => {
+    const openAparelhosModal = async (client, autoStartAdd = false) => {
       selectedClient.value = client;
       clientAparelhos.value = [];
       cancelEditAparelho();
       showAparelhosModal.value = true;
       await fetchAparelhos(client.id_cliente);
+      if (autoStartAdd) {
+        startAddAparelho();
+      }
     };
 
     const closeAparelhosModal = () => {
