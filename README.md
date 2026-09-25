@@ -2,7 +2,7 @@
 
 > **Sistema de Gestão de Assistência Técnica de Celulares com Controle de Estoque, Vendas e Caixa**
 
-Este repositório contém a implementação do **Guicell Manager**, um sistema ERP integrado desenvolvido como projeto de Trabalho de Conclusão de Curso (TCC) em Sistemas de Informação pelos autores **Eduardo Santana Resende** e **Emilly Gabrielly Pereira da Silva**.
+Este repositório contém a implementação do **Guicell Manager**, um sistema de gestão integrado desenvolvido como projeto de Trabalho de Conclusão de Curso (TCC) em Sistemas de Informação pelos autores **Eduardo Santana Resende** e **Emilly Gabrielly Pereira da Silva**.
 
 O sistema foi projetado para modernizar a gestão operacional e financeira de assistências técnicas de celulares, fornecendo uma plataforma web integrada com banco de dados relacional para persistência de dados e controle de segurança através de perfis de usuário.
 

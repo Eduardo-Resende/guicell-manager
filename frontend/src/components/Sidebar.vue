@@ -2,11 +2,11 @@
   <aside class="sidebar">
     <div class="brand-container">
       <div class="logo-wrapper">
-        <img src="/logo-new.png" alt="Guicell Manager Logo" class="brand-icon-img" title="GUICELL MANAGER ERP" />
+        <img src="/logo-new.png" alt="Guicell Manager Logo" class="brand-icon-img" title="GUICELL MANAGER" />
         <div class="brand-text">
           <span class="brand-name">GUICELL</span>
           <span class="brand-sub">MANAGER</span>
-          <span class="brand-badge">ERP</span>
+          <span class="brand-badge">PRO</span>
         </div>
       </div>
     </div>

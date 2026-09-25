@@ -1,7 +1,7 @@
 {
   "name": "guicell-backend",
   "version": "1.0.0",
-  "description": "API REST do Guicell Manager — ERP para assistência técnica de celulares",
+  "description": "API REST do Guicell Manager — sistema de gestão para assistência técnica de celulares",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",

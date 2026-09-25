@@ -11,7 +11,6 @@
             <div class="brand-text">
               <span class="brand-name">GUICELL</span>
               <span class="brand-sub">MANAGER</span>
-              <span class="brand-badge">ERP</span>
             </div>
           </div>
           <div class="logo-divider"></div>
@@ -19,7 +18,7 @@
 
         <div class="brand-content">
           <h1 class="main-headline">
-            O ERP completo para <span class="highlight">sua assistência técnica de celulares</span>
+            O sistema de gestão completo para <span class="highlight">sua assistência técnica de celulares</span>
           </h1>
           <p class="sub-headline">
             Mais controle, agilidade e organização para o seu negócio.
@@ -93,7 +92,7 @@
         <div class="white-card">
           <div class="card-header text-center">
             <h2>Bem-vindo <span class="highlight-green">de volta!</span></h2>
-            <p class="subtitle">Faça login para acessar o Guicell Manager ERP</p>
+            <p class="subtitle">Faça login para acessar o Guicell Manager</p>
           </div>
 
           <form @submit.prevent="handleLogin" class="login-form">
@@ -191,7 +190,7 @@
         
         <!-- Footer nested inside white form-panel -->
         <footer class="login-footer">
-          <p>© 2026 <span class="highlight-green-footer">Guicell Manager ERP</span>. Todos os direitos reservados.</p>
+          <p>© 2026 <span class="highlight-green-footer">Guicell Manager</span>. Todos os direitos reservados.</p>
         </footer>
       </div>
     </div>
