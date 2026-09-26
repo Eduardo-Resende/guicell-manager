@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Utilitário central de formatação de datas.
  *
  * Problema: O banco salva datas como ISO-8601 UTC (ex: "2026-09-25T12:00:00.000Z").
@@ -20,7 +20,7 @@ export function formatarData(dateStr) {
     const datePart = String(dateStr).split('T')[0];
     if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
       const [y, m, d] = datePart.split('-');
-      return ${d}//;
+      return `${d}/${m}/${y}`;
     }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? String(dateStr) : d.toLocaleDateString('pt-BR');

@@ -23,7 +23,8 @@ jobs:
 
             echo "=== [1/5] Pulling latest code ==="
             cd /var/www/guicell/guicell-manager
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
 
             echo "=== [2/6] Installing backend dependencies ==="
             cd backend
