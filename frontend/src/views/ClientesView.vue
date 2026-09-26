@@ -801,16 +801,17 @@ export default defineComponent({
       showHistoryModal.value = true;
       try {
         const details = await clientesService.buscarPorId(client.id_cliente);
-        clientHistory.value = (details.ordensServico || []).map(os => ({
-          id: os.id_os,
+        // Backend retorna 'movimentacoes' (tabela unificada), filtrado por origem='os'
+        clientHistory.value = (details.movimentacoes || []).map(os => ({
+          id: os.id_movimentacao,
           numero: os.numero_os,
           aparelho: os.aparelho ? `${os.aparelho.marca} ${os.aparelho.modelo}` : 'Aparelho s/ ref',
           defeito: os.defeito_relatado,
-          status: os.status,
-          valor: os.valor_final
-            ? `R$ ${parseFloat(os.valor_final).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          status: os.status_os,
+          valor: os.valor_total
+            ? `R$ ${parseFloat(os.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             : 'Não orçado',
-          data: formatarData(os.data_abertura)
+          data: formatarData(os.data_movimentacao)
         }));
       } catch (err) {
         console.error('Erro ao buscar histórico do cliente:', err);

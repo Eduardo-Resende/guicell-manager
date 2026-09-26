@@ -392,10 +392,10 @@ export default defineComponent({
     };
 
     const mapVenda = (s) => ({
-      id: s.id_venda,
-      codigo: s.id_venda.toString().padStart(4, '0'),
-      data: formatarDataHora(s.data_venda),
-      usuario: s.atendente?.nome || 'Operador',
+      id: s.id_movimentacao,
+      codigo: s.id_movimentacao.toString().padStart(4, '0'),
+      data: formatarDataHora(s.data_movimentacao),
+      usuario: s.usuario?.nome || 'Operador',
       cliente: s.cliente?.nome || null,
       itens: (s.itens || []).map(it => ({
         descricao: it.produto?.descricao || 'Item',
@@ -404,7 +404,7 @@ export default defineComponent({
       desconto: parseFloat(s.desconto || 0),
       total: parseFloat(s.valor_total),
       formaPagamento: s.forma_pagamento,
-      status: s.status,
+      status: s.status_pagamento,
     });
 
     const fetchCatalog = async () => {

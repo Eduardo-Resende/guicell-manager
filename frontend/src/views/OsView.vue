@@ -845,54 +845,6 @@ export default defineComponent({
           );
         }
 
-        // Registrar logs de movimentações em localStorage
-        const storedLogs = localStorage.getItem('guicell_movement_logs');
-        const logs = storedLogs ? JSON.parse(storedLogs) : [];
-        const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
-        const tecnicoNome = userObj ? userObj.nome : 'Operador';
-
-        // 1. Contar quantidades originais
-        const originalCounts = {};
-        originalParts.value.forEach(p => {
-          originalCounts[p.id] = (originalCounts[p.id] || 0) + 1;
-        });
-
-        // 2. Contar quantidades novas
-        const newCounts = {};
-        selectedOS.value.parts.forEach(p => {
-          newCounts[p.id] = (newCounts[p.id] || 0) + 1;
-        });
-
-        // 3. Gerar logs baseados na diferença
-        const allIds = new Set([...Object.keys(originalCounts), ...Object.keys(newCounts)]);
-        let logsUpdated = false;
-
-        allIds.forEach(idStr => {
-          const id = parseInt(idStr);
-          const oldQtd = originalCounts[id] || 0;
-          const newQtd = newCounts[id] || 0;
-          const diff = newQtd - oldQtd;
-
-          if (diff !== 0) {
-            const prodDesc = selectedOS.value.parts.find(p => p.id === id)?.descricao || originalParts.value.find(p => p.id === id)?.descricao || 'Peça Desconhecida';
-            
-            logs.unshift({
-              id: Date.now() + Math.random(),
-              data: new Date().toLocaleString('pt-BR'),
-              produto: prodDesc,
-              tipo: diff > 0 ? 'Saída' : 'Entrada',
-              qtd: Math.abs(diff),
-              origem: diff > 0 ? `OS #${selectedOS.value.numero}` : `OS #${selectedOS.value.numero} (Removido)`,
-              tecnico: tecnicoNome
-            });
-            logsUpdated = true;
-          }
-        });
-
-        if (logsUpdated) {
-          localStorage.setItem('guicell_movement_logs', JSON.stringify(logs));
-        }
-
         await fetchOS();
         showDetailModal.value = false;
       } catch (err) {
