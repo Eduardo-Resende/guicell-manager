@@ -151,6 +151,7 @@
 <script>
 import { defineComponent, ref, onMounted } from 'vue';
 import { osService } from '../services/index.js';
+import { formatarDataHora } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'DashboardView',
@@ -209,7 +210,7 @@ export default defineComponent({
           cliente: os.cliente?.nome || 'N/A',
           aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
           status: os.status,
-          data: new Date(os.data_abertura).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+          data: formatarDataHora(os.data_abertura)
         }));
 
         // Processa gráficos de status

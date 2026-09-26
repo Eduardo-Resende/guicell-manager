@@ -6,6 +6,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/alertas', ctrl.alertasEstoque);
+router.get('/movimentacoes', ctrl.listarMovimentacoes);
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.buscarPorId);
 router.post('/', ctrl.criar);

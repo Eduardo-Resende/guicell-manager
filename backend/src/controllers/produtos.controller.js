@@ -199,4 +199,48 @@ const alertasEstoque = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizar, remover, registrarEntrada, alertasEstoque };
+// Listar histórico de movimentações de estoque (compras, vendas, os, entradas)
+const listarMovimentacoes = async (req, res) => {
+  try {
+    const { ItemMovimentacao, Movimentacao, Usuario } = require('../models');
+    const itens = await ItemMovimentacao.findAll({
+      include: [
+        { model: Produto, as: 'produto', attributes: ['descricao'] },
+        { 
+          model: Movimentacao, as: 'movimentacao', 
+          attributes: ['origem', 'data_movimentacao', 'numero_os'],
+          include: [{ model: Usuario, as: 'usuario', attributes: ['nome'] }]
+        }
+      ],
+      order: [[{ model: Movimentacao, as: 'movimentacao' }, 'data_movimentacao', 'DESC']]
+    });
+
+    // Mapear para o formato esperado pelo frontend
+    const logs = itens.map(item => {
+      const mov = item.movimentacao;
+      let origemDestino = '';
+      let tipo = '';
+      if (mov.origem === 'compra') { origemDestino = 'Compra (Fornecedor)'; tipo = 'Entrada'; }
+      else if (mov.origem === 'venda') { origemDestino = 'Venda'; tipo = 'Saída'; }
+      else if (mov.origem === 'os') { origemDestino = `OS #${mov.numero_os || ''}`; tipo = 'Saída'; }
+      else { origemDestino = 'Outro'; tipo = 'Entrada'; }
+
+      return {
+        id: item.id_item_movimentacao,
+        data: new Date(mov.data_movimentacao).toLocaleString('pt-BR'),
+        produto: item.produto?.descricao || 'Produto/Peça',
+        tipo,
+        qtd: item.quantidade,
+        origem: origemDestino,
+        tecnico: mov.usuario?.nome || 'Sistema'
+      };
+    });
+
+    return res.json(logs);
+  } catch (err) {
+    console.error('[Produtos] Erro ao listar movimentações:', err);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+};
+
+module.exports = { listar, buscarPorId, criar, atualizar, remover, registrarEntrada, alertasEstoque, listarMovimentacoes };

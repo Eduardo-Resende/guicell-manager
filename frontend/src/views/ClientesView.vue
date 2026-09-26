@@ -415,6 +415,7 @@
 import { defineComponent, ref, onMounted, watch } from 'vue';
 import { clientesService, aparelhosService } from '../services/index.js';
 import { formatPhone, formatCpfCnpj, unmask, validatePhone, validateCpfCnpj } from '../utils/formatters.js';
+import { formatarData } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'ClientesView',
@@ -809,7 +810,7 @@ export default defineComponent({
           valor: os.valor_final
             ? `R$ ${parseFloat(os.valor_final).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
             : 'Não orçado',
-          data: new Date(os.data_abertura).toLocaleDateString('pt-BR')
+          data: formatarData(os.data_abertura)
         }));
       } catch (err) {
         console.error('Erro ao buscar histórico do cliente:', err);

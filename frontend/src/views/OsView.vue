@@ -192,13 +192,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="os in osPendentes" :key="os.id_os" class="fiado-row">
+            <tr v-for="os in osPendentes" :key="os.id_movimentacao" class="fiado-row">
               <td class="font-bold text-white">{{ os.numero_os }}</td>
-              <td class="text-muted">{{ os.data_fechamento ? new Date(os.data_fechamento).toLocaleDateString('pt-BR') : '-' }}</td>
+              <td class="text-muted">{{ os.data_fechamento ? formatarData(os.data_fechamento) : '-' }}</td>
               <td class="text-white font-semibold">{{ os.cliente?.nome }}</td>
               <td class="text-muted">{{ os.aparelho?.marca }} {{ os.aparelho?.modelo }}</td>
               <td class="text-muted">{{ os.tecnico?.nome || '-' }}</td>
-              <td class="font-bold text-warning">R$ {{ parseFloat(os.valor_final || 0).toFixed(2) }}</td>
+              <td class="font-bold text-warning">R$ {{ parseFloat(os.valor_total || 0).toFixed(2) }}</td>
               <td>
                 <button class="btn-success-outline" @click="openPagarOsModal(os)">Receber</button>
               </td>
@@ -538,6 +538,7 @@
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { osService, clientesService, produtosService, usuariosService, aparelhosService } from '../services/index.js';
 import OsViewer from '../components/OsViewer.vue';
+import { formatarData } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'OsView',
@@ -589,8 +590,8 @@ export default defineComponent({
       if (!formaPagamentoOs.value) return;
       pagandoOs.value = true;
       try {
-        await osService.pagar(osSelecionada.value.id_os, formaPagamentoOs.value);
-        alert('Pagamento registrado! R$ ' + parseFloat(osSelecionada.value.valor_final).toFixed(2) + ' via ' + formaPagamentoOs.value + ' lancado no caixa.');
+        await osService.pagar(osSelecionada.value.id_movimentacao, formaPagamentoOs.value);
+        alert('Pagamento registrado! R$ ' + parseFloat(osSelecionada.value.valor_total).toFixed(2) + ' via ' + formaPagamentoOs.value + ' lancado no caixa.');
         closePagarOsModal();
         await fetchOsPendentes();
       } catch (err) {
@@ -649,22 +650,23 @@ export default defineComponent({
         const data = await osService.listar(filtros);
         ordens.value = data.map(os => {
           const partsTotal = (os.itens || []).reduce((sum, it) => sum + parseFloat(it.valor_unitario) * it.quantidade, 0);
-          const totalVal = os.status === 'Entregue' ? parseFloat(os.valor_final) : (parseFloat(os.valor_orcado || 0) + partsTotal);
+          const totalVal = os.status_os === 'Entregue' ? parseFloat(os.valor_total) : (parseFloat(os.valor_orcado || 0) + partsTotal);
           return {
-            id: os.id_os,
+            id: os.id_movimentacao,
             numero: os.numero_os,
             cliente: os.cliente?.nome || 'N/A',
             aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
             tecnico: os.tecnico?.nome || 'Não atribuído',
             prazo: os.prazo_estimado ? new Date(os.prazo_estimado + 'T12:00:00').toLocaleDateString('pt-BR') : 'Não definido',
-            status: os.status,
+            status: os.status_os,
             total: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             maoObra: parseFloat(os.valor_orcado || 0),
             partsTotal: partsTotal,
             parts: (os.itens || []).map(it => ({
               id: it.id_produto,
               descricao: it.produto?.descricao || 'Produto/Peça',
-              preco: parseFloat(it.valor_unitario)
+              preco: parseFloat(it.valor_unitario),
+              qtd: it.quantidade || 1
             })),
             defeito: os.defeito_relatado || os.defeito || '',
             diagnostico: os.diagnostico || '',
@@ -672,7 +674,7 @@ export default defineComponent({
             id_cliente: os.id_cliente,
             id_aparelho: os.id_aparelho,
             id_tecnico: os.id_tecnico,
-            id_os: os.id_os
+            id_os: os.id_movimentacao
           };
         });
       } catch (err) {
@@ -737,8 +739,8 @@ export default defineComponent({
         const detailedOS = await osService.buscarPorId(os.id_os);
         selectedOS.value = {
           ...os,
-          status: detailedOS.status || os.status,
-          originalStatus: detailedOS.status || os.status,
+          status: detailedOS.status_os || os.status,
+          originalStatus: detailedOS.status_os || os.status,
           defeito: detailedOS.defeito_relatado || os.defeito || '',
           maoObra: parseFloat(detailedOS.valor_orcado || os.maoObra || 0),
           desconto: parseFloat(detailedOS.desconto || 0),
@@ -756,7 +758,7 @@ export default defineComponent({
           email_cliente: detailedOS.cliente?.email || '',
           telefone_cliente: detailedOS.cliente?.telefone || '',
           cpf_cnpj_cliente: detailedOS.cliente?.cpf_cnpj || '',
-          data_abertura_raw: detailedOS.data_abertura || new Date().toISOString(),
+          data_abertura_raw: detailedOS.data_movimentacao || new Date().toISOString(),
         };
         originalParts.value = [...selectedOS.value.parts];
         showDetailModal.value = true;
@@ -1032,6 +1034,7 @@ export default defineComponent({
       openPagarOsModal,
       closePagarOsModal,
       confirmarPagamentoOs,
+      formatarData,
     };
   }
 });

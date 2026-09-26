@@ -521,21 +521,16 @@ export default defineComponent({
       router.push('/compras');
     };
 
-    const getMovementLogs = () => {
-      const stored = localStorage.getItem('guicell_movement_logs');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      const initial = [
-        { id: 1, data: '10/07/2026 10:15', produto: 'Tela Frontal iPhone 13 OLED', tipo: 'Saída', qtd: 1, origem: 'OS #OS-20260717-0001', tecnico: 'Técnico Padrão' },
-        { id: 2, data: '09/07/2026 17:45', produto: 'Conector de Carga Tipo C', tipo: 'Saída', qtd: 1, origem: 'OS #OS-20260717-0002', tecnico: 'Técnico Padrão' },
-        { id: 3, data: '08/07/2026 14:00', produto: 'Bateria Compatível S22', tipo: 'Entrada', qtd: 5, origem: 'Compra Distribuidora', tecnico: 'Gerente Padrão' }
-      ];
-      localStorage.setItem('guicell_movement_logs', JSON.stringify(initial));
-      return initial;
-    };
+    const movementLogs = ref([]);
 
-    const movementLogs = ref(getMovementLogs());
+    const fetchMovementLogs = async () => {
+      try {
+        const data = await produtosService.movimentacoes();
+        movementLogs.value = data;
+      } catch (err) {
+        console.error('Erro ao buscar movimentações:', err);
+      }
+    };
 
     const fetchCategories = async () => {
       try {
@@ -573,7 +568,7 @@ export default defineComponent({
     });
 
     const sortedLogs = computed(() => {
-      return [...movementLogs.value].sort((a, b) => b.id - a.id);
+      return movementLogs.value;
     });
 
     const closeModal = () => {
@@ -602,20 +597,9 @@ export default defineComponent({
           await produtosService.atualizar(editingId.value, payload);
         } else {
           await produtosService.criar(payload);
-          const userObj = JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
-          const tecnicoNome = userObj ? userObj.nome : 'Gerente Padrão';
-          movementLogs.value.unshift({
-            id: Date.now(),
-            data: new Date().toLocaleString('pt-BR'),
-            produto: payload.descricao,
-            tipo: 'Entrada',
-            qtd: payload.estoque_atual,
-            origem: 'Cadastro Inicial',
-            tecnico: tecnicoNome
-          });
-          localStorage.setItem('guicell_movement_logs', JSON.stringify(movementLogs.value));
         }
         await fetchProducts();
+        await fetchMovementLogs();
         closeModal();
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao salvar produto.');
@@ -709,6 +693,7 @@ export default defineComponent({
     onMounted(() => {
       fetchCategories();
       fetchProducts();
+      fetchMovementLogs();
     });
 
     const getTipoUsoBadge = (tipo) => {

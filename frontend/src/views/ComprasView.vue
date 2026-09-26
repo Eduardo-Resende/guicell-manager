@@ -220,9 +220,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in compras" :key="c.id_compra">
-                <td class="text-muted font-mono">#{{ String(c.id_compra).padStart(4, '0') }}</td>
-                <td>{{ formatarData(c.data_compra) }}</td>
+              <tr v-for="c in compras" :key="c.id_movimentacao">
+                <td class="text-muted font-mono">#{{ String(c.id_movimentacao).padStart(4, '0') }}</td>
+                <td>{{ formatarData(c.data_movimentacao) }}</td>
                 <td class="font-semibold text-white">{{ nomeFornecedor(c) }}</td>
                 <td>{{ c.itens?.length || 0 }} item(ns)</td>
                 <td class="font-bold text-success">R$ {{ parseFloat(c.valor_total).toFixed(2) }}</td>
@@ -373,14 +373,14 @@
     <div v-if="compraDetalhes" class="modal-overlay" @click.self="compraDetalhes = null">
       <div class="modal-content modal-lg">
         <div class="modal-header">
-          <h3>Compra #{{ String(compraDetalhes.id_compra).padStart(4, '0') }}</h3>
+          <h3>Compra #{{ String(compraDetalhes.id_movimentacao).padStart(4, '0') }}</h3>
           <button class="close-btn" @click="compraDetalhes = null">&times;</button>
         </div>
         <div class="modal-body">
           <div class="detalhe-grid mb-4">
             <div class="detalhe-item">
               <span class="detalhe-label">Data</span>
-              <span class="detalhe-valor">{{ formatarData(compraDetalhes.data_compra) }}</span>
+              <span class="detalhe-valor">{{ formatarData(compraDetalhes.data_movimentacao) }}</span>
             </div>
             <div class="detalhe-item">
               <span class="detalhe-label">Fornecedor</span>
@@ -410,13 +410,13 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in compraDetalhes.itens" :key="item.id_item_compra">
+                <tr v-for="item in compraDetalhes.itens" :key="item.id_item_movimentacao">
                   <td>
                     <span class="font-semibold text-white">{{ item.descricao_item }}</span>
                   </td>
                   <td>{{ item.quantidade }}</td>
-                  <td>R$ {{ parseFloat(item.valor_custo_unitario).toFixed(2) }}</td>
-                  <td class="text-right font-bold">R$ {{ (parseFloat(item.valor_custo_unitario) * item.quantidade).toFixed(2) }}</td>
+                  <td>R$ {{ parseFloat(item.valor_unitario).toFixed(2) }}</td>
+                  <td class="text-right font-bold">R$ {{ (parseFloat(item.valor_unitario) * item.quantidade).toFixed(2) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -490,6 +490,7 @@
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { comprasService, fornecedoresService, produtosService, categoriasService } from '../services/index.js';
 import { formatCNPJ, formatPhone, unmask, validateCpfCnpj, validatePhone } from '../utils/formatters.js';
+import { formatarData } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'ComprasView',
@@ -795,11 +796,6 @@ export default defineComponent({
     // ── Helpers ────────────────────────────────────────────────────────────────
     const nomeFornecedor = (c) => c.fornecedor?.nome || 'Avulso';
 
-    const formatarData = (dateStr) => {
-      if (!dateStr) return '—';
-      const [y, m, d] = dateStr.split('-');
-      return `${d}/${m}/${y}`;
-    };
 
     const verDetalhes = (c) => {
       compraDetalhes.value = c;

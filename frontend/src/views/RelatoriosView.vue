@@ -146,7 +146,7 @@
             <tbody>
               <tr v-for="v in vendasReportData.vendas" :key="v.id_venda">
                 <td class="font-semibold text-white">#{{ v.id_venda.toString().padStart(4, '0') }}</td>
-                <td>{{ new Date(v.data_venda).toLocaleString('pt-BR') }}</td>
+                <td>{{ formatarDataHora(v.data_venda) }}</td>
                 <td>{{ v.atendente?.nome || 'Operador' }}</td>
                 <td>
                   <div class="text-xs text-muted" v-for="(it, idx) in v.itens" :key="idx">
@@ -276,6 +276,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { relatoriosService } from '../services/index.js';
+import { formatarDataHora } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'RelatoriosView',
@@ -392,7 +393,8 @@ export default defineComponent({
       totalCustoEstoque,
       totalVendaEstoque,
       getBadgeClass,
-      exportData
+      exportData,
+      formatarDataHora
     };
   }
 });

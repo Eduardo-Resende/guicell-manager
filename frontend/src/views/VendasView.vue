@@ -337,6 +337,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { produtosService, vendasService, clientesService } from '../services/index.js';
+import { formatarDataHora } from '../utils/formatDate.js';
 
 export default defineComponent({
   name: 'VendasView',
@@ -393,7 +394,7 @@ export default defineComponent({
     const mapVenda = (s) => ({
       id: s.id_venda,
       codigo: s.id_venda.toString().padStart(4, '0'),
-      data: new Date(s.data_venda).toLocaleString('pt-BR'),
+      data: formatarDataHora(s.data_venda),
       usuario: s.atendente?.nome || 'Operador',
       cliente: s.cliente?.nome || null,
       itens: (s.itens || []).map(it => ({

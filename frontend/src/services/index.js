@@ -52,6 +52,7 @@ export const osService = {
 export const produtosService = {
   listar: (filtros) => api.get('/produtos', { params: filtros }).then(r => r.data),
   alertas: () => api.get('/produtos/alertas').then(r => r.data),
+  movimentacoes: () => api.get('/produtos/movimentacoes').then(r => r.data),
   criar: (dados) => api.post('/produtos', dados).then(r => r.data),
   atualizar: (id, dados) => api.put(`/produtos/${id}`, dados).then(r => r.data),
   remover: (id) => api.delete(`/produtos/${id}`),
