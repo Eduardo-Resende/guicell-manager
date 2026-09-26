@@ -205,17 +205,19 @@ export default defineComponent({
 
         // Processa últimas OS
         recentOS.value = (data.ultimasOS || []).map(os => ({
-          id: os.id_os,
+          id: os.id_movimentacao,
           numero: os.numero_os,
           cliente: os.cliente?.nome || 'N/A',
           aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
-          status: os.status,
-          data: formatarDataHora(os.data_abertura)
+          status: os.status_os,
+          data: formatarDataHora(os.data_movimentacao)
         }));
 
         // Processa gráficos de status
         const statusMap = {
           'Aguardando': 'Aguardando',
+          'Aguardando Diagnóstico': 'Aguardando',
+          'Aguardando Cliente': 'Aguardando',
           'Em Reparo': 'Em Reparo',
           'Aguardando Peça': 'Aguard. Peça',
           'Concluído': 'Concluído',
@@ -225,7 +227,7 @@ export default defineComponent({
 
         const counts = {};
         (data.statusCounts || []).forEach(sc => {
-          const mappedLabel = statusMap[sc.status];
+          const mappedLabel = statusMap[sc.status_os];
           if (mappedLabel) {
             counts[mappedLabel] = (counts[mappedLabel] || 0) + parseInt(sc.count);
           }

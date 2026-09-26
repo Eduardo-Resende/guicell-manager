@@ -94,14 +94,14 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="os in osReportData.ordens" :key="os.id_os">
+                <tr v-for="os in osReportData.ordens" :key="os.id_movimentacao">
                   <td class="font-semibold text-white">#{{ os.numero_os }}</td>
                   <td>{{ os.cliente?.nome || 'N/A' }}</td>
                   <td>{{ os.aparelho?.marca }} {{ os.aparelho?.modelo }}</td>
                   <td>{{ os.tecnico?.nome || 'N/A' }}</td>
-                  <td class="font-bold text-success">R$ {{ parseFloat(os.valor_calculado ?? os.valor_final ?? os.valor_orcado ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="font-bold text-success">R$ {{ parseFloat(os.valor_calculado ?? os.valor_total ?? os.valor_orcado ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
                   <td>
-                    <span :class="['badge', getBadgeClass(os.status)]">{{ os.status }}</span>
+                    <span :class="['badge', getBadgeClass(os.status_os)]">{{ os.status_os }}</span>
                   </td>
                 </tr>
                 <tr v-if="osReportData.ordens.length === 0">
@@ -144,10 +144,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="v in vendasReportData.vendas" :key="v.id_venda">
-                <td class="font-semibold text-white">#{{ v.id_venda.toString().padStart(4, '0') }}</td>
-                <td>{{ formatarDataHora(v.data_venda) }}</td>
-                <td>{{ v.atendente?.nome || 'Operador' }}</td>
+              <tr v-for="v in vendasReportData.vendas" :key="v.id_movimentacao">
+                <td class="font-semibold text-white">#{{ v.id_movimentacao.toString().padStart(4, '0') }}</td>
+                <td>{{ formatarDataHora(v.data_movimentacao) }}</td>
+                <td>{{ v.usuario?.nome || 'Operador' }}</td>
                 <td>
                   <div class="text-xs text-muted" v-for="(it, idx) in v.itens" :key="idx">
                     • {{ it.produto?.descricao }} (x{{ it.quantidade }})
