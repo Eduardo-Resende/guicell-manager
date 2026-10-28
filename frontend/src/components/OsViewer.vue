@@ -287,7 +287,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import api from '../services/api.js';
 import { formatPhone, unmask, validatePhone } from '../utils/formatters.js';
 
