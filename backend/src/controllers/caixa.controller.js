@@ -58,6 +58,7 @@ const resumoDia = async (req, res) => {
       .filter(m => m.tipo === 'saida' && m.categoria !== 'Fechamento de Caixa')
       .reduce((sum, m) => sum + parseFloat(m.valor), 0);
 
+    const jaAberto = movimentos.some(m => m.categoria === 'Abertura de Caixa');
     const jaFechado = movimentos.some(m => m.categoria === 'Fechamento de Caixa');
 
     return res.json({
@@ -65,7 +66,7 @@ const resumoDia = async (req, res) => {
       entradas,
       saidas,
       saldo: abertura + entradas - saidas,
-      caixaAberto: abertura > 0 && !jaFechado,
+      caixaAberto: jaAberto && !jaFechado,
     });
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno.' });
