@@ -105,7 +105,7 @@
                   :style="{ height: bar.percentage + '%', backgroundColor: bar.color }"
                 ></div>
               </div>
-              <div class="bar-label">{{ bar.label }}</div>
+              <div class="bar-label" :title="bar.fullName || bar.label">{{ bar.label }}</div>
             </div>
           </div>
         </div>
@@ -115,7 +115,6 @@
       <div class="card recent-os-card">
         <div class="card-header-flex">
           <h2 class="section-title">Últimas OS Abertas</h2>
-          <button class="btn btn-secondary btn-sm" @click="$emit('change-view', 'os')">Ver todas</button>
         </div>
         <div class="table-responsive">
           <table>
@@ -165,12 +164,13 @@ export default defineComponent({
     const recentOS = ref([]);
 
     const statusBars = ref([
-      { label: 'Aguardando', value: 0, percentage: 0, color: 'var(--warning)' },
-      { label: 'Em Reparo', value: 0, percentage: 0, color: 'var(--info)' },
-      { label: 'Aguard. Peça', value: 0, percentage: 0, color: '#ec4899' },
-      { label: 'Concluído', value: 0, percentage: 0, color: 'var(--success)' },
-      { label: 'Entregue', value: 0, percentage: 0, color: 'var(--primary)' },
-      { label: 'Cancelado', value: 0, percentage: 0, color: 'var(--danger)' }
+      { label: 'Aguard. Diag.', fullName: 'Aguardando Diagnóstico', value: 0, percentage: 0, color: '#f4a429' },
+      { label: 'Aguard. Cliente', fullName: 'Aguardando Cliente', value: 0, percentage: 0, color: '#a78bfa' },
+      { label: 'Aguard. Peça', fullName: 'Aguardando Peça', value: 0, percentage: 0, color: '#f87171' },
+      { label: 'Em Reparo', fullName: 'Em Reparo', value: 0, percentage: 0, color: '#38bdf8' },
+      { label: 'Concluído', fullName: 'Concluído', value: 0, percentage: 0, color: '#4ade80' },
+      { label: 'Entregue', fullName: 'Entregue', value: 0, percentage: 0, color: '#22c55e' },
+      { label: 'Cancelado', fullName: 'Cancelado', value: 0, percentage: 0, color: '#6b7280' }
     ]);
 
     const formatarDataHoje = () => {
@@ -184,7 +184,9 @@ export default defineComponent({
 
     const getBadgeClass = (status) => {
       switch (status) {
-        case 'Aguardando': return 'badge-warning';
+        case 'Aguardando':
+        case 'Aguardando Diagnóstico': return 'badge-warning';
+        case 'Aguardando Cliente': return 'badge-warning';
         case 'Em Reparo': return 'badge-info';
         case 'Aguard. Peça':
         case 'Aguardando Peça': return 'badge-danger';
@@ -215,11 +217,11 @@ export default defineComponent({
 
         // Processa gráficos de status
         const statusMap = {
-          'Aguardando': 'Aguardando',
-          'Aguardando Diagnóstico': 'Aguardando',
-          'Aguardando Cliente': 'Aguardando',
-          'Em Reparo': 'Em Reparo',
+          'Aguardando': 'Aguard. Diag.',
+          'Aguardando Diagnóstico': 'Aguard. Diag.',
+          'Aguardando Cliente': 'Aguard. Cliente',
           'Aguardando Peça': 'Aguard. Peça',
+          'Em Reparo': 'Em Reparo',
           'Concluído': 'Concluído',
           'Entregue': 'Entregue',
           'Cancelado': 'Cancelado'
@@ -431,14 +433,15 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px;
 }
 
 .chart-bar-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 14%;
+  flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
