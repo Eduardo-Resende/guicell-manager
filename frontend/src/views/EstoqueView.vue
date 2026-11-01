@@ -511,7 +511,7 @@ export default defineComponent({
       codigo_barras: '',
       descricao: '',
       id_categoria: '',
-      qtd: 5,
+      qtd: 0,
       min: 0,
       custo: 0.00,
       venda: 0.00
@@ -574,7 +574,7 @@ export default defineComponent({
     const closeModal = () => {
       showAddModal.value = false;
       editingId.value = null;
-      form.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 5, min: 0, custo: 0, venda: 0 };
+      form.value = { codigo_barras: '', descricao: '', id_categoria: '', qtd: 0, min: 0, custo: 0, venda: 0 };
     };
 
     const submitProduct = async () => {

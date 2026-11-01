@@ -458,7 +458,7 @@
             <div class="grid grid-cols-2 gap-3">
               <div class="form-group">
                 <label>Estoque Inicial *</label>
-                <input type="number" v-model="prodForm.qtd" required min="0" class="input-control" />
+                <input type="number" v-model="prodForm.qtd" required min="0" disabled class="input-control" />
               </div>
               <div class="form-group">
                 <label>Estoque Mínimo <span class="text-xs text-muted font-normal">(0 ou em branco = sem aviso)</span></label>
@@ -625,7 +625,7 @@ export default defineComponent({
           codigo_barras: prodForm.value.codigo_barras || null,
           descricao: prodForm.value.descricao,
           id_categoria: prodForm.value.id_categoria ? parseInt(prodForm.value.id_categoria) : null,
-          estoque_atual: parseInt(prodForm.value.qtd) || 0,
+          estoque_atual: 0,
           estoque_minimo: parseInt(prodForm.value.min) || 0,
           valor_custo: parseFloat(prodForm.value.custo) || 0,
           valor_venda: parseFloat(prodForm.value.venda)
@@ -909,6 +909,9 @@ export default defineComponent({
 /* Botões extras */
 .btn-icon { width: 18px; height: 18px; }
 .btn-icon-sm { width: 15px; height: 15px; }
+.action-icon { width: 14px; height: 14px; }
+.btn-xs { padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; }
+.btn-xs.btn-icon-only { padding: 8px; }
 
 .btn-sm {
   padding: 8px 14px;
@@ -1190,5 +1193,10 @@ export default defineComponent({
 .textarea-control {
   min-height: 60px;
   resize: vertical;
+}
+
+.input-control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
