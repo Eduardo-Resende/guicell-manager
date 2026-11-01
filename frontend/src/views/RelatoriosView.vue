@@ -144,9 +144,12 @@
                   </div>
                 </td>
                 <td class="text-danger">R$ {{ parseFloat(v.desconto || 0).toFixed(2) }}</td>
-                <td class="font-bold text-success">R$ {{ parseFloat(v.valor_total).toFixed(2) }}</td>
+                <td :class="['font-bold', v.status_pagamento === 'cancelado' ? 'text-muted' : 'text-success']" :style="v.status_pagamento === 'cancelado' ? 'text-decoration: line-through;' : ''">
+                  R$ {{ parseFloat(v.valor_total).toFixed(2) }}
+                </td>
                 <td>
-                  <span class="badge badge-info">{{ v.forma_pagamento }}</span>
+                  <span v-if="v.status_pagamento === 'cancelado'" class="badge badge-danger">Cancelada ({{ v.forma_pagamento }})</span>
+                  <span v-else class="badge badge-info">{{ v.forma_pagamento }}</span>
                 </td>
               </tr>
               <tr v-if="vendasReportData.vendas.length === 0">
@@ -542,7 +545,7 @@ export default defineComponent({
             (v.itens || []).map(it => `${it.produto?.descricao || 'Item'} (x${it.quantidade})`).join(', ') || '-',
             fmtMoney(v.desconto || 0),
             fmtMoney(v.valor_total || 0),
-            v.forma_pagamento || '-',
+            v.status_pagamento === 'cancelado' ? `Cancelada (${v.forma_pagamento || '-'})` : (v.forma_pagamento || '-'),
           ]),
         };
       }

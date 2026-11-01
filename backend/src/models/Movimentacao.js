@@ -55,11 +55,15 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     status_pagamento: {
-      type: DataTypes.ENUM('pago', 'pendente'),
+      type: DataTypes.ENUM('pago', 'pendente', 'cancelado'),
       allowNull: true,
-      // Unifica: status (vendas) e status_pagamento (OS)
+      // Unifica: status (vendas/compras) e status_pagamento (OS)
     },
     observacao: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    motivo_cancelamento: {
       type: DataTypes.TEXT,
       allowNull: true,
     },

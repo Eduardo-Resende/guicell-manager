@@ -1,6 +1,6 @@
 'use strict';
 
-const { Movimentacao, ItemMovimentacao, Produto, Fornecedor, Caixa, Usuario, sequelize } = require('../models');
+const { Movimentacao, ItemMovimentacao, Produto, Fornecedor, Caixa, Usuario, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 const compraIncludes = [
@@ -60,6 +60,7 @@ const criar = async (req, res) => {
       nome_fornecedor_avulso:   nome_fornecedor_avulso || null,
       data_movimentacao:        new Date(`${data_compra}T12:00:00`),
       valor_total:              valorTotal,
+      status_pagamento:         'pago',
       observacao:               observacao || null,
       id_usuario:               req.usuario.id_usuario,
     }, { transaction: t });
@@ -121,4 +122,119 @@ const criar = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar };
+// ─── Cancelar compra ──────────────────────────────────────────────────────────
+const cancelar = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { motivo } = req.body;
+    if (!motivo || !String(motivo).trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
+    }
+
+    const compra = await Movimentacao.findOne({
+      where: { id_movimentacao: req.params.id, origem: 'compra' },
+      include: [
+        { model: Fornecedor, as: 'fornecedor', attributes: ['id_fornecedor', 'nome'] },
+        { model: ItemMovimentacao, as: 'itens' },
+      ],
+      transaction: t,
+    });
+
+    if (!compra) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Compra não encontrada.' });
+    }
+    if (compra.status_pagamento === 'cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta compra já está cancelada.' });
+    }
+
+    const dadosAnteriores = compra.toJSON();
+    const motivoLimpo = String(motivo).trim();
+
+    // 1. Agrupar quantidades por produto e validar saldo disponível em estoque
+    const qtdPorProduto = {};
+    for (const item of compra.itens || []) {
+      qtdPorProduto[item.id_produto] = (qtdPorProduto[item.id_produto] || 0) + parseInt(item.quantidade, 10);
+    }
+
+    const produtosParaAtualizar = [];
+    for (const [idProdStr, qtdEstorno] of Object.entries(qtdPorProduto)) {
+      const produto = await Produto.findByPk(Number(idProdStr), { transaction: t });
+      if (!produto) {
+        await t.rollback();
+        return res.status(404).json({ error: `Produto #${idProdStr} da compra não encontrado no estoque.` });
+      }
+      if (produto.estoque_atual < qtdEstorno) {
+        await t.rollback();
+        return res.status(400).json({
+          error: `Não é possível cancelar esta compra: o produto "${produto.descricao}" possui apenas ${produto.estoque_atual} un em estoque, mas a compra exige retirar ${qtdEstorno} un (parte dos itens já foi vendida ou utilizada).`,
+        });
+      }
+      produtosParaAtualizar.push({ produto, qtdEstorno });
+    }
+
+    // 2. Retirar quantidades do estoque
+    for (const { produto, qtdEstorno } of produtosParaAtualizar) {
+      await produto.update(
+        { estoque_atual: produto.estoque_atual - qtdEstorno },
+        { transaction: t }
+      );
+    }
+
+    // 3. Atualizar status da compra e registrar motivo
+    await compra.update(
+      {
+        status_pagamento: 'cancelado',
+        motivo_cancelamento: motivoLimpo,
+      },
+      { transaction: t }
+    );
+
+    // 4. Lançar entrada de estorno no Caixa
+    const nomeFornecedor = compra.fornecedor?.nome || compra.nome_fornecedor_avulso || 'Fornecedor';
+    await Caixa.create(
+      {
+        id_usuario:      req.usuario.id_usuario,
+        data:            new Date(),
+        tipo:            'entrada',
+        valor:           parseFloat(compra.valor_total),
+        descricao:       `Cancelamento Compra #${compra.id_movimentacao} (${nomeFornecedor}) — Motivo: ${motivoLimpo}`.slice(0, 200),
+        categoria:       'Compra',
+        id_movimentacao: compra.id_movimentacao,
+      },
+      { transaction: t }
+    );
+
+    // 5. Registrar log de auditoria
+    if (LogAuditoria) {
+      await LogAuditoria.create(
+        {
+          id_usuario:       req.usuario.id_usuario,
+          acao:             'CANCELAR',
+          entidade:         'movimentacao',
+          id_registro:      compra.id_movimentacao,
+          dados_anteriores: dadosAnteriores,
+          dados_posteriores: compra.toJSON(),
+          ip_origem:        req.ip || null,
+        },
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    const compraCompleta = await Movimentacao.findOne({
+      where: { id_movimentacao: compra.id_movimentacao },
+      include: compraIncludes,
+    });
+    return res.json(compraCompleta);
+  } catch (err) {
+    await t.rollback();
+    console.error('[Compras] Erro ao cancelar:', err);
+    return res.status(500).json({ error: 'Erro interno ao cancelar compra.' });
+  }
+};
+
+module.exports = { listar, buscarPorId, criar, cancelar };

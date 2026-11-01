@@ -216,7 +216,8 @@
                 <th>Itens</th>
                 <th>Valor Total</th>
                 <th>Registrado por</th>
-                <th class="text-right">Ação</th>
+                <th>Status</th>
+                <th class="text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -225,16 +226,30 @@
                 <td>{{ formatarData(c.data_movimentacao) }}</td>
                 <td class="font-semibold text-white">{{ nomeFornecedor(c) }}</td>
                 <td>{{ c.itens?.length || 0 }} item(ns)</td>
-                <td class="font-bold text-success">R$ {{ parseFloat(c.valor_total).toFixed(2) }}</td>
+                <td :class="['font-bold', c.status_pagamento === 'cancelado' ? 'text-muted' : 'text-success']" :style="c.status_pagamento === 'cancelado' ? 'text-decoration: line-through;' : ''">
+                  R$ {{ parseFloat(c.valor_total).toFixed(2) }}
+                </td>
                 <td class="text-muted">{{ c.usuario?.nome || '—' }}</td>
+                <td>
+                  <span v-if="c.status_pagamento === 'cancelado'" class="badge badge-danger">Cancelada</span>
+                  <span v-else class="badge badge-success">Concluída</span>
+                  <div v-if="c.status_pagamento === 'cancelado' && c.motivo_cancelamento" class="text-xs text-muted mt-1" style="max-width: 220px; white-space: normal;">
+                    Motivo: {{ c.motivo_cancelamento }}
+                  </div>
+                </td>
                 <td class="text-right">
-                  <button class="btn btn-secondary btn-xs" @click="verDetalhes(c)">
-                    Detalhes
-                  </button>
+                  <div class="flex gap-2 justify-end">
+                    <button class="btn btn-secondary btn-xs" @click="verDetalhes(c)">
+                      Detalhes
+                    </button>
+                    <button v-if="c.status_pagamento !== 'cancelado'" class="btn btn-danger btn-xs" @click="abrirModalCancelarCompra(c)">
+                      Cancelar
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="compras.length === 0">
-                <td colspan="7" class="text-center text-muted py-6">Nenhuma compra encontrada.</td>
+                <td colspan="8" class="text-center text-muted py-6">Nenhuma compra encontrada.</td>
               </tr>
             </tbody>
           </table>
@@ -395,6 +410,10 @@
               <span class="detalhe-valor text-success font-bold">R$ {{ parseFloat(compraDetalhes.valor_total).toFixed(2) }}</span>
             </div>
           </div>
+          <div v-if="compraDetalhes.status_pagamento === 'cancelado'" class="observacao-box mb-4" style="border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); color: #fca5a5;">
+            <strong>Compra Cancelada</strong><br />
+            Motivo: {{ compraDetalhes.motivo_cancelamento || 'Não informado' }}
+          </div>
           <div v-if="compraDetalhes.observacao" class="observacao-box mb-4">
             <span class="detalhe-label">Observação:</span> {{ compraDetalhes.observacao }}
           </div>
@@ -422,9 +441,45 @@
             </table>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer flex gap-2 justify-end">
+          <button v-if="compraDetalhes.status_pagamento !== 'cancelado'" class="btn btn-danger" @click="abrirModalCancelarCompra(compraDetalhes)">
+            Cancelar Compra
+          </button>
           <button class="btn btn-secondary" @click="compraDetalhes = null">Fechar</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal: Cancelar Compra -->
+    <div v-if="showCancelarCompraModal" class="modal-overlay" @click.self="fecharModalCancelarCompra">
+      <div class="modal-content" style="max-width: 480px;">
+        <div class="modal-header">
+          <h3>Cancelar Compra #{{ compraParaCancelar ? String(compraParaCancelar.id_movimentacao).padStart(4, '0') : '' }}</h3>
+          <button class="close-btn" @click="fecharModalCancelarCompra">&times;</button>
+        </div>
+        <form @submit.prevent="confirmarCancelamentoCompra">
+          <div class="modal-body">
+            <div class="mb-4" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 12px; font-size: 0.85rem; color: #fca5a5;">
+              <strong>Atenção:</strong> O cancelamento irá <strong>subtrair os itens do estoque</strong> (validando se há saldo disponível) e lançar uma <strong>entrada de estorno no Caixa</strong> no valor de <strong>R$ {{ compraParaCancelar ? parseFloat(compraParaCancelar.valor_total).toFixed(2) : '0.00' }}</strong>. A compra continuará visível no histórico como <em>Cancelada</em>.
+            </div>
+            <div class="form-group m-0">
+              <label>Motivo do Cancelamento *</label>
+              <textarea
+                v-model="motivoCancelamentoCompra"
+                required
+                rows="3"
+                class="input-control textarea-control"
+                placeholder="Informe o motivo do cancelamento desta compra..."
+              ></textarea>
+            </div>
+          </div>
+          <div class="modal-footer flex gap-2">
+            <button type="button" class="btn btn-secondary flex-1" @click="fecharModalCancelarCompra" :disabled="cancelandoCompra">Voltar</button>
+            <button type="submit" class="btn btn-danger flex-1" :disabled="cancelandoCompra">
+              {{ cancelandoCompra ? 'Cancelando...' : 'Confirmar Cancelamento' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
     <!-- Modal: Novo Produto -->
@@ -548,7 +603,17 @@ export default defineComponent({
 
     const totalItens = computed(() => compraForm.value.itens.reduce((acc, i) => acc + (parseInt(i.quantidade) || 0), 0));
     const totalCompra = computed(() => compraForm.value.itens.reduce((acc, i) => acc + subtotalItem(i), 0));
-    const totalHistorico = computed(() => compras.value.reduce((acc, c) => acc + parseFloat(c.valor_total || 0), 0));
+    const totalHistorico = computed(() =>
+      compras.value
+        .filter(c => c.status_pagamento !== 'cancelado')
+        .reduce((acc, c) => acc + parseFloat(c.valor_total || 0), 0)
+    );
+
+    // ── Cancelamento de Compra ─────────────────────────────────────────────────
+    const showCancelarCompraModal = ref(false);
+    const compraParaCancelar = ref(null);
+    const motivoCancelamentoCompra = ref('');
+    const cancelandoCompra = ref(false);
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
     const buscarFornecedores = async () => {
@@ -801,6 +866,42 @@ export default defineComponent({
       compraDetalhes.value = c;
     };
 
+    const abrirModalCancelarCompra = (c) => {
+      compraParaCancelar.value = c;
+      motivoCancelamentoCompra.value = '';
+      showCancelarCompraModal.value = true;
+    };
+
+    const fecharModalCancelarCompra = () => {
+      showCancelarCompraModal.value = false;
+      compraParaCancelar.value = null;
+      motivoCancelamentoCompra.value = '';
+    };
+
+    const confirmarCancelamentoCompra = async () => {
+      if (!compraParaCancelar.value) return;
+      if (!motivoCancelamentoCompra.value || !motivoCancelamentoCompra.value.trim()) {
+        alert('Informe o motivo do cancelamento.');
+        return;
+      }
+
+      cancelandoCompra.value = true;
+      try {
+        await comprasService.cancelar(compraParaCancelar.value.id_movimentacao, motivoCancelamentoCompra.value.trim());
+        if (compraDetalhes.value && compraDetalhes.value.id_movimentacao === compraParaCancelar.value.id_movimentacao) {
+          compraDetalhes.value = null;
+        }
+        fecharModalCancelarCompra();
+        await buscarCompras();
+        await buscarProdutos();
+        alert('✅ Compra cancelada com sucesso! O estoque e o caixa foram estornados.');
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao cancelar compra.');
+      } finally {
+        cancelandoCompra.value = false;
+      }
+    };
+
     onMounted(async () => {
       await buscarFornecedores();
       await buscarProdutos();
@@ -851,6 +952,13 @@ export default defineComponent({
       nomeFornecedor,
       formatarData,
       verDetalhes,
+      showCancelarCompraModal,
+      compraParaCancelar,
+      motivoCancelamentoCompra,
+      cancelandoCompra,
+      abrirModalCancelarCompra,
+      fecharModalCancelarCompra,
+      confirmarCancelamentoCompra,
     };
   }
 });

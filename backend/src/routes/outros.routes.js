@@ -13,6 +13,7 @@ vendasRouter.get('/pendentes', vendCtrl.listarPendentes);
 vendasRouter.get('/', vendCtrl.listar);
 vendasRouter.post('/', vendCtrl.criar);
 vendasRouter.post('/:id/pagar', vendCtrl.pagarFiado);
+vendasRouter.post('/:id/cancelar', vendCtrl.cancelar);
 
 // Caixa
 const caixaRouter = Router();
@@ -48,5 +49,6 @@ comprasRouter.use(authenticate);
 comprasRouter.get('/', comprasCtrl.listar);
 comprasRouter.get('/:id', comprasCtrl.buscarPorId);
 comprasRouter.post('/', comprasCtrl.criar);
+comprasRouter.post('/:id/cancelar', comprasCtrl.cancelar);
 
 module.exports = { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter, comprasRouter };

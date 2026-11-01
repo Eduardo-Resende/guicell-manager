@@ -1,6 +1,6 @@
 'use strict';
 
-const { Movimentacao, ItemMovimentacao, Produto, Cliente, Usuario, Caixa, sequelize } = require('../models');
+const { Movimentacao, ItemMovimentacao, Produto, Cliente, Usuario, Caixa, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 const vendaIncludes = [
@@ -146,4 +146,98 @@ const pagarFiado = async (req, res) => {
   }
 };
 
-module.exports = { listar, listarPendentes, criar, pagarFiado };
+// ─── Cancelar venda ───────────────────────────────────────────────────────────
+const cancelar = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { motivo } = req.body;
+    if (!motivo || !String(motivo).trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
+    }
+
+    const venda = await Movimentacao.findOne({
+      where: { id_movimentacao: req.params.id, origem: 'venda' },
+      include: [{ model: ItemMovimentacao, as: 'itens' }],
+      transaction: t,
+    });
+
+    if (!venda) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Venda não encontrada.' });
+    }
+    if (venda.status_pagamento === 'cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta venda já está cancelada.' });
+    }
+
+    const dadosAnteriores = venda.toJSON();
+    const estavaPaga = venda.status_pagamento === 'pago';
+    const motivoLimpo = String(motivo).trim();
+
+    // 1. Devolver os produtos vendidos ao estoque
+    for (const item of venda.itens || []) {
+      const produto = await Produto.findByPk(item.id_produto, { transaction: t });
+      if (produto) {
+        await produto.update(
+          { estoque_atual: produto.estoque_atual + parseInt(item.quantidade, 10) },
+          { transaction: t }
+        );
+      }
+    }
+
+    // 2. Atualizar status da venda e registrar motivo do cancelamento
+    await venda.update(
+      {
+        status_pagamento: 'cancelado',
+        motivo_cancelamento: motivoLimpo,
+      },
+      { transaction: t }
+    );
+
+    // 3. Se estava paga (à vista ou fiado já recebido), lançar saída de estorno no Caixa
+    if (estavaPaga) {
+      await Caixa.create(
+        {
+          id_usuario:      req.usuario.id_usuario,
+          data:            new Date(),
+          tipo:            'saida',
+          valor:           parseFloat(venda.valor_total),
+          descricao:       `Cancelamento Venda #${venda.id_movimentacao} — Motivo: ${motivoLimpo}`.slice(0, 200),
+          categoria:       'Venda',
+          id_movimentacao: venda.id_movimentacao,
+        },
+        { transaction: t }
+      );
+    }
+
+    // 4. Registrar log de auditoria
+    if (LogAuditoria) {
+      await LogAuditoria.create(
+        {
+          id_usuario:       req.usuario.id_usuario,
+          acao:             'CANCELAR',
+          entidade:         'movimentacao',
+          id_registro:      venda.id_movimentacao,
+          dados_anteriores: dadosAnteriores,
+          dados_posteriores: venda.toJSON(),
+          ip_origem:        req.ip || null,
+        },
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+    const vendaAtualizada = await Movimentacao.findOne({
+      where: { id_movimentacao: venda.id_movimentacao },
+      include: vendaIncludes,
+    });
+    return res.json(vendaAtualizada);
+  } catch (err) {
+    await t.rollback();
+    console.error('[Vendas] Erro ao cancelar venda:', err);
+    return res.status(500).json({ error: 'Erro interno ao cancelar venda.' });
+  }
+};
+
+module.exports = { listar, listarPendentes, criar, pagarFiado, cancelar };

@@ -199,7 +199,7 @@ const alertasEstoque = async (req, res) => {
   }
 };
 
-// Listar histórico de movimentações de estoque (compras, vendas, os, entradas)
+// Listar histórico de movimentações de estoque (compras, vendas, os, entradas e estornos)
 const listarMovimentacoes = async (req, res) => {
   try {
     const { ItemMovimentacao, Movimentacao, Usuario } = require('../models');
@@ -208,34 +208,55 @@ const listarMovimentacoes = async (req, res) => {
         { model: Produto, as: 'produto', attributes: ['descricao'] },
         { 
           model: Movimentacao, as: 'movimentacao', 
-          attributes: ['origem', 'data_movimentacao', 'numero_os'],
+          attributes: ['id_movimentacao', 'origem', 'data_movimentacao', 'atualizado_em', 'numero_os', 'status_pagamento'],
           include: [{ model: Usuario, as: 'usuario', attributes: ['nome'] }]
         }
       ],
       order: [[{ model: Movimentacao, as: 'movimentacao' }, 'data_movimentacao', 'DESC']]
     });
 
-    // Mapear para o formato esperado pelo frontend
-    const logs = itens.map(item => {
+    const logs = [];
+    for (const item of itens) {
       const mov = item.movimentacao;
+      if (!mov) continue;
+
       let origemDestino = '';
       let tipo = '';
-      if (mov.origem === 'compra') { origemDestino = 'Compra (Fornecedor)'; tipo = 'Entrada'; }
-      else if (mov.origem === 'venda') { origemDestino = 'Venda'; tipo = 'Saída'; }
+      if (mov.origem === 'compra') { origemDestino = `Compra #${String(mov.id_movimentacao).padStart(4, '0')} (Fornecedor)`; tipo = 'Entrada'; }
+      else if (mov.origem === 'venda') { origemDestino = `Venda #${String(mov.id_movimentacao).padStart(4, '0')}`; tipo = 'Saída'; }
       else if (mov.origem === 'os') { origemDestino = `OS #${mov.numero_os || ''}`; tipo = 'Saída'; }
       else { origemDestino = 'Outro'; tipo = 'Entrada'; }
 
-      return {
+      // Se a compra ou venda foi cancelada, adiciona também o registro de estorno (entrada/saída inversa)
+      if (mov.status_pagamento === 'cancelado' && (mov.origem === 'compra' || mov.origem === 'venda')) {
+        const dataCancel = mov.atualizado_em || mov.data_movimentacao;
+        logs.push({
+          id: `${item.id_item_movimentacao}-cancel`,
+          timestamp: new Date(dataCancel).getTime(),
+          data: new Date(dataCancel).toLocaleString('pt-BR'),
+          produto: item.produto?.descricao || 'Produto/Peça',
+          tipo: mov.origem === 'compra' ? 'Saída' : 'Entrada',
+          qtd: item.quantidade,
+          origem: mov.origem === 'compra'
+            ? `Cancelamento Compra #${String(mov.id_movimentacao).padStart(4, '0')}`
+            : `Cancelamento Venda #${String(mov.id_movimentacao).padStart(4, '0')}`,
+          tecnico: mov.usuario?.nome || 'Sistema'
+        });
+      }
+
+      logs.push({
         id: item.id_item_movimentacao,
+        timestamp: new Date(mov.data_movimentacao).getTime(),
         data: new Date(mov.data_movimentacao).toLocaleString('pt-BR'),
         produto: item.produto?.descricao || 'Produto/Peça',
         tipo,
         qtd: item.quantidade,
         origem: origemDestino,
         tecnico: mov.usuario?.nome || 'Sistema'
-      };
-    });
+      });
+    }
 
+    logs.sort((a, b) => b.timestamp - a.timestamp);
     return res.json(logs);
   } catch (err) {
     console.error('[Produtos] Erro ao listar movimentações:', err);

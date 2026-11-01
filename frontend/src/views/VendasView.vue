@@ -212,7 +212,7 @@
               <th>Cliente</th>
               <th>Itens</th>
               <th>Total a Receber</th>
-              <th>Acao</th>
+              <th class="text-right">Acao</th>
             </tr>
           </thead>
           <tbody>
@@ -229,10 +229,15 @@
                 </div>
               </td>
               <td class="font-bold text-warning">R$ {{ sale.total.toFixed(2) }}</td>
-              <td>
-                <button class="btn-success-outline" @click="openPagarModal(sale)">
-                  Marcar como Pago
-                </button>
+              <td class="text-right">
+                <div class="flex gap-2 justify-end">
+                  <button class="btn-success-outline" @click="openPagarModal(sale)">
+                    Marcar como Pago
+                  </button>
+                  <button class="btn-danger-outline" @click="openCancelarModal(sale)">
+                    Cancelar
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="pendentes.length === 0">
@@ -260,10 +265,11 @@
               <th>Total</th>
               <th>Pagamento</th>
               <th>Status</th>
+              <th class="text-right">Ação</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="sale in sales" :key="sale.id">
+            <tr v-for="sale in sales" :key="sale.id" :class="{ 'row-cancelada': sale.status === 'cancelado' }">
               <td class="font-bold text-white">#{{ sale.codigo }}</td>
               <td>{{ sale.data }}</td>
               <td>{{ sale.usuario }}</td>
@@ -273,15 +279,31 @@
                 </div>
               </td>
               <td class="text-danger">R$ {{ sale.desconto.toFixed(2) }}</td>
-              <td class="font-bold text-white">R$ {{ sale.total.toFixed(2) }}</td>
+              <td class="font-bold" :class="sale.status === 'cancelado' ? 'text-muted line-through' : 'text-white'">
+                R$ {{ sale.total.toFixed(2) }}
+              </td>
               <td><span class="badge badge-info">{{ sale.formaPagamento }}</span></td>
               <td>
                 <span v-if="sale.status === 'pendente'" class="badge-pendentes">Pendente</span>
+                <span v-else-if="sale.status === 'cancelado'" class="badge badge-danger">Cancelada</span>
                 <span v-else class="badge badge-success">Pago</span>
+                <div v-if="sale.status === 'cancelado' && sale.motivoCancelamento" class="motivo-cancelamento-tag" :title="sale.motivoCancelamento">
+                  Motivo: {{ sale.motivoCancelamento }}
+                </div>
+              </td>
+              <td class="text-right">
+                <button
+                  v-if="sale.status !== 'cancelado'"
+                  class="btn-danger-outline btn-xs"
+                  @click="openCancelarModal(sale)"
+                >
+                  Cancelar Venda
+                </button>
+                <span v-else class="text-muted text-xs" style="font-style:italic">Cancelada</span>
               </td>
             </tr>
             <tr v-if="sales.length === 0">
-              <td colspan="8" class="text-center text-muted py-6">Nenhuma venda registrada no periodo.</td>
+              <td colspan="9" class="text-center text-muted py-6">Nenhuma venda registrada no periodo.</td>
             </tr>
           </tbody>
         </table>
@@ -331,6 +353,62 @@
         </div>
       </div>
     </div>
+
+    <!-- MODAL: Cancelar Venda -->
+    <div v-if="showCancelarModal && vendaParaCancelar" class="modal-overlay" @click.self="!cancelando && closeCancelarModal()">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Cancelar Venda #{{ vendaParaCancelar.codigo }}</h3>
+          <button class="close-btn" @click="closeCancelarModal" :disabled="cancelando">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="cancel-warning-box mb-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span v-if="vendaParaCancelar.status === 'pendente'">
+              Esta venda é <strong>Fiado (Pendente)</strong>. Ao cancelar, os itens serão devolvidos ao estoque e <strong>não haverá movimentação no caixa</strong>.
+            </span>
+            <span v-else>
+              Esta venda já foi <strong>Paga</strong>. Ao cancelar, os itens serão devolvidos ao estoque e será registrada uma <strong>saída de estorno de R$ {{ vendaParaCancelar.total.toFixed(2) }}</strong> no caixa.
+            </span>
+          </div>
+
+          <div class="resumo-pagar mb-4">
+            <div v-for="(item, i) in vendaParaCancelar.itens" :key="i" class="resumo-item">
+              <span class="text-muted">* {{ item.descricao }}</span>
+              <span class="text-white">+{{ item.qtd }} un no estoque</span>
+            </div>
+            <div class="resumo-total-row">
+              <span class="font-bold">Valor da Venda</span>
+              <span class="text-danger font-bold text-lg">R$ {{ vendaParaCancelar.total.toFixed(2) }}</span>
+            </div>
+          </div>
+
+          <div class="form-group m-0">
+            <label>Motivo do Cancelamento <span class="required-star">*</span></label>
+            <textarea
+              v-model="motivoCancelamentoVenda"
+              class="input-control"
+              rows="3"
+              placeholder="Informe o motivo do cancelamento (ex: devolução do cliente, erro no lançamento)..."
+              required
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeCancelarModal" :disabled="cancelando">Voltar</button>
+          <button
+            class="btn-danger-solid"
+            :disabled="!motivoCancelamentoVenda.trim() || cancelando"
+            @click="confirmarCancelamentoVenda"
+          >
+            {{ cancelando ? 'Cancelando...' : 'Confirmar Cancelamento' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -355,6 +433,12 @@ export default defineComponent({
     const vendaSelecionada = ref(null);
     const formaPagamentoFiado = ref('');
     const pagando = ref(false);
+
+    // Estado de cancelamento de venda
+    const showCancelarModal = ref(false);
+    const vendaParaCancelar = ref(null);
+    const motivoCancelamentoVenda = ref('');
+    const cancelando = ref(false);
 
     // Estado do campo de cliente
     const clienteQuery = ref('');
@@ -405,6 +489,7 @@ export default defineComponent({
       total: parseFloat(s.valor_total),
       formaPagamento: s.forma_pagamento,
       status: s.status_pagamento,
+      motivoCancelamento: s.motivo_cancelamento || null,
     });
 
     const fetchCatalog = async () => {
@@ -549,6 +634,41 @@ export default defineComponent({
       }
     };
 
+    const openCancelarModal = (sale) => {
+      vendaParaCancelar.value = sale;
+      motivoCancelamentoVenda.value = '';
+      showCancelarModal.value = true;
+    };
+
+    const closeCancelarModal = () => {
+      showCancelarModal.value = false;
+      vendaParaCancelar.value = null;
+      motivoCancelamentoVenda.value = '';
+    };
+
+    const confirmarCancelamentoVenda = async () => {
+      if (!motivoCancelamentoVenda.value.trim()) {
+        alert('Informe o motivo do cancelamento.');
+        return;
+      }
+      cancelando.value = true;
+      try {
+        const estavaPendente = vendaParaCancelar.value.status === 'pendente';
+        await vendasService.cancelar(vendaParaCancelar.value.id, motivoCancelamentoVenda.value.trim());
+        closeCancelarModal();
+        await Promise.all([fetchCatalog(), fetchPendentes(), fetchSales()]);
+        if (estavaPendente) {
+          alert('✅ Venda cancelada com sucesso! Os itens foram devolvidos ao estoque.');
+        } else {
+          alert('✅ Venda cancelada com sucesso! Os itens foram devolvidos ao estoque e o valor foi estornado no caixa.');
+        }
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao cancelar venda.');
+      } finally {
+        cancelando.value = false;
+      }
+    };
+
     onMounted(() => {
       fetchCatalog();
       fetchSales();
@@ -562,6 +682,8 @@ export default defineComponent({
       sales, pendentes,
       showPagarModal, vendaSelecionada, formaPagamentoFiado, pagando,
       openPagarModal, closePagarModal, confirmarPagamento,
+      showCancelarModal, vendaParaCancelar, motivoCancelamentoVenda, cancelando,
+      openCancelarModal, closeCancelarModal, confirmarCancelamentoVenda,
       clienteQuery, clienteSelecionado, clientesSugestoes,
       onClienteInput, selectCliente, clearCliente, onClienteBlur,
     };
@@ -672,6 +794,33 @@ export default defineComponent({
   white-space: nowrap; padding: 6px 14px; font-size: 0.8rem;
 }
 .btn-success-outline:hover { background: rgba(34,197,94,0.15); }
+
+.btn-danger-outline {
+  background: transparent; border: 1px solid var(--danger, #ef4444); color: var(--danger, #ef4444);
+  border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.15s;
+  white-space: nowrap; padding: 6px 12px; font-size: 0.78rem;
+}
+.btn-danger-outline:hover { background: rgba(239,68,68,0.15); }
+
+.btn-danger-solid {
+  background: var(--danger, #ef4444); color: #fff; border: none;
+  padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s;
+}
+.btn-danger-solid:hover { opacity: 0.85; }
+.btn-danger-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.row-cancelada td { opacity: 0.65; }
+.line-through { text-decoration: line-through; }
+.motivo-cancelamento-tag {
+  margin-top: 4px; font-size: 0.72rem; color: #f87171;
+  max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.cancel-warning-box {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px; padding: 12px; font-size: 0.85rem; color: #fca5a5; line-height: 1.45;
+}
 
 .resumo-pagar { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .resumo-item { display: flex; justify-content: space-between; padding: 8px 14px; font-size: 0.875rem; border-bottom: 1px solid var(--border); }

@@ -77,9 +77,10 @@ const relatorioVendas = async (req, res) => {
       order: [['data_movimentacao', 'DESC'], ['id_movimentacao', 'DESC']],
     });
 
+    const vendasAtivas = vendas.filter(v => v.status_pagamento !== 'cancelado');
     const totais = {
-      total_vendas: vendas.length,
-      valor_total:  vendas.reduce((sum, v) => sum + parseFloat(v.valor_total), 0),
+      total_vendas: vendasAtivas.length,
+      valor_total:  vendasAtivas.reduce((sum, v) => sum + parseFloat(v.valor_total), 0),
     };
     return res.json({ vendas, totais });
   } catch (err) {

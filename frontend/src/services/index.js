@@ -64,6 +64,7 @@ export const vendasService = {
   listarPendentes: () => api.get('/vendas/pendentes').then(r => r.data),
   criar: (dados) => api.post('/vendas', dados).then(r => r.data),
   pagar: (id, forma_pagamento) => api.post(`/vendas/${id}/pagar`, { forma_pagamento }).then(r => r.data),
+  cancelar: (id, motivo) => api.post(`/vendas/${id}/cancelar`, { motivo }).then(r => r.data),
 };
 
 export const caixaService = {
@@ -108,4 +109,5 @@ export const comprasService = {
   listar: (filtros) => api.get('/compras', { params: filtros }).then(r => r.data),
   buscarPorId: (id) => api.get(`/compras/${id}`).then(r => r.data),
   criar: (dados) => api.post('/compras', dados).then(r => r.data),
+  cancelar: (id, motivo) => api.post(`/compras/${id}/cancelar`, { motivo }).then(r => r.data),
 };
