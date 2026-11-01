@@ -223,18 +223,17 @@
                 <span v-if="sale.cliente" class="text-white font-semibold">{{ sale.cliente }}</span>
                 <span v-else class="text-muted" style="font-style:italic">Sem cliente</span>
               </td>
-              <td>
-                <div class="text-xs text-muted" v-for="(item, i) in sale.itens" :key="i">
-                  * {{ item.descricao }} (x{{ item.qtd }})
-                </div>
-              </td>
+              <td>{{ sale.itens?.length || 0 }} item(ns)</td>
               <td class="font-bold text-warning">R$ {{ sale.total.toFixed(2) }}</td>
               <td class="text-right">
                 <div class="flex gap-2 justify-end">
+                  <button class="btn btn-secondary btn-xs" @click="verDetalhesVenda(sale)">
+                    Detalhes
+                  </button>
                   <button class="btn-success-outline" @click="openPagarModal(sale)">
                     Marcar como Pago
                   </button>
-                  <button class="btn-danger-outline" @click="openCancelarModal(sale)">
+                  <button class="btn btn-danger btn-xs" @click="openCancelarModal(sale)">
                     Cancelar
                   </button>
                 </div>
@@ -265,7 +264,7 @@
               <th>Total</th>
               <th>Pagamento</th>
               <th>Status</th>
-              <th class="text-right">Ação</th>
+              <th class="text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -273,11 +272,7 @@
               <td class="font-bold text-white">#{{ sale.codigo }}</td>
               <td>{{ sale.data }}</td>
               <td>{{ sale.usuario }}</td>
-              <td>
-                <div class="text-xs text-muted" v-for="(item, i) in sale.itens" :key="i">
-                  * {{ item.descricao }} (x{{ item.qtd }})
-                </div>
-              </td>
+              <td>{{ sale.itens?.length || 0 }} item(ns)</td>
               <td class="text-danger">R$ {{ sale.desconto.toFixed(2) }}</td>
               <td class="font-bold" :class="sale.status === 'cancelado' ? 'text-muted line-through' : 'text-white'">
                 R$ {{ sale.total.toFixed(2) }}
@@ -292,14 +287,18 @@
                 </div>
               </td>
               <td class="text-right">
-                <button
-                  v-if="sale.status !== 'cancelado'"
-                  class="btn-danger-outline btn-xs"
-                  @click="openCancelarModal(sale)"
-                >
-                  Cancelar Venda
-                </button>
-                <span v-else class="text-muted text-xs" style="font-style:italic">Cancelada</span>
+                <div class="flex gap-2 justify-end">
+                  <button class="btn btn-secondary btn-xs" @click="verDetalhesVenda(sale)">
+                    Detalhes
+                  </button>
+                  <button
+                    v-if="sale.status !== 'cancelado'"
+                    class="btn btn-danger btn-xs"
+                    @click="openCancelarModal(sale)"
+                  >
+                    Cancelar
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="sales.length === 0">
@@ -307,6 +306,86 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- MODAL: Detalhes da Venda -->
+    <div v-if="vendaDetalhes" class="modal-overlay" @click.self="vendaDetalhes = null">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <h3>Venda #{{ vendaDetalhes.codigo }}</h3>
+          <button class="close-btn" @click="vendaDetalhes = null">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="detalhe-grid mb-4">
+            <div class="detalhe-item">
+              <span class="detalhe-label">Data / Hora</span>
+              <span class="detalhe-valor">{{ vendaDetalhes.data }}</span>
+            </div>
+            <div class="detalhe-item">
+              <span class="detalhe-label">Cliente</span>
+              <span class="detalhe-valor">{{ vendaDetalhes.cliente || 'Consumidor Final' }}</span>
+            </div>
+            <div class="detalhe-item">
+              <span class="detalhe-label">Operador</span>
+              <span class="detalhe-valor">{{ vendaDetalhes.usuario }}</span>
+            </div>
+            <div class="detalhe-item">
+              <span class="detalhe-label">Pagamento / Status</span>
+              <span class="detalhe-valor flex gap-2 items-center">
+                <span class="badge badge-info">{{ vendaDetalhes.formaPagamento }}</span>
+                <span v-if="vendaDetalhes.status === 'pendente'" class="badge-pendentes">Pendente</span>
+                <span v-else-if="vendaDetalhes.status === 'cancelado'" class="badge badge-danger">Cancelada</span>
+                <span v-else class="badge badge-success">Pago</span>
+              </span>
+            </div>
+            <div class="detalhe-item">
+              <span class="detalhe-label">Desconto</span>
+              <span class="detalhe-valor text-danger">R$ {{ vendaDetalhes.desconto.toFixed(2) }}</span>
+            </div>
+            <div class="detalhe-item">
+              <span class="detalhe-label">Valor Total</span>
+              <span class="detalhe-valor font-bold" :class="vendaDetalhes.status === 'cancelado' ? 'text-muted line-through' : 'text-success'">
+                R$ {{ vendaDetalhes.total.toFixed(2) }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="vendaDetalhes.status === 'cancelado'" class="observacao-box mb-4" style="border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); color: #fca5a5;">
+            <strong>Venda Cancelada</strong><br />
+            Motivo: {{ vendaDetalhes.motivoCancelamento || 'Não informado' }}
+          </div>
+
+          <h4 class="mb-3">Itens da Venda</h4>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Qtd</th>
+                  <th>Preço Unit.</th>
+                  <th class="text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, idx) in vendaDetalhes.itens" :key="idx">
+                  <td>
+                    <span class="font-semibold text-white">{{ item.descricao }}</span>
+                  </td>
+                  <td>{{ item.qtd }}</td>
+                  <td>R$ {{ parseFloat(item.valorUnitario || 0).toFixed(2) }}</td>
+                  <td class="text-right font-bold">R$ {{ (parseFloat(item.valorUnitario || 0) * item.qtd).toFixed(2) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer flex gap-2 justify-end">
+          <button v-if="vendaDetalhes.status !== 'cancelado'" class="btn btn-danger" @click="openCancelarModal(vendaDetalhes)">
+            Cancelar Venda
+          </button>
+          <button class="btn btn-secondary" @click="vendaDetalhes = null">Fechar</button>
+        </div>
       </div>
     </div>
 
@@ -434,7 +513,8 @@ export default defineComponent({
     const formaPagamentoFiado = ref('');
     const pagando = ref(false);
 
-    // Estado de cancelamento de venda
+    // Estado de detalhes e cancelamento de venda
+    const vendaDetalhes = ref(null);
     const showCancelarModal = ref(false);
     const vendaParaCancelar = ref(null);
     const motivoCancelamentoVenda = ref('');
@@ -482,8 +562,9 @@ export default defineComponent({
       usuario: s.usuario?.nome || 'Operador',
       cliente: s.cliente?.nome || null,
       itens: (s.itens || []).map(it => ({
-        descricao: it.produto?.descricao || 'Item',
+        descricao: it.produto?.descricao || it.descricao_item || 'Item',
         qtd: it.quantidade,
+        valorUnitario: parseFloat(it.valor_unitario || 0),
       })),
       desconto: parseFloat(s.desconto || 0),
       total: parseFloat(s.valor_total),
@@ -634,6 +715,10 @@ export default defineComponent({
       }
     };
 
+    const verDetalhesVenda = (sale) => {
+      vendaDetalhes.value = sale;
+    };
+
     const openCancelarModal = (sale) => {
       vendaParaCancelar.value = sale;
       motivoCancelamentoVenda.value = '';
@@ -654,7 +739,11 @@ export default defineComponent({
       cancelando.value = true;
       try {
         const estavaPendente = vendaParaCancelar.value.status === 'pendente';
-        await vendasService.cancelar(vendaParaCancelar.value.id, motivoCancelamentoVenda.value.trim());
+        const idCancelado = vendaParaCancelar.value.id;
+        await vendasService.cancelar(idCancelado, motivoCancelamentoVenda.value.trim());
+        if (vendaDetalhes.value && vendaDetalhes.value.id === idCancelado) {
+          vendaDetalhes.value = null;
+        }
         closeCancelarModal();
         await Promise.all([fetchCatalog(), fetchPendentes(), fetchSales()]);
         if (estavaPendente) {
@@ -680,6 +769,7 @@ export default defineComponent({
       cart, catalog, filteredCatalog, subtotal, total,
       addToCart, removeFromCart, incrementQty, decrementQty, finalizeSale,
       sales, pendentes,
+      vendaDetalhes, verDetalhesVenda,
       showPagarModal, vendaSelecionada, formaPagamentoFiado, pagando,
       openPagarModal, closePagarModal, confirmarPagamento,
       showCancelarModal, vendaParaCancelar, motivoCancelamentoVenda, cancelando,
@@ -697,6 +787,15 @@ export default defineComponent({
 .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .page-title { font-size: 2rem; margin-bottom: 4px; }
 .page-subtitle { color: var(--text-muted); font-size: 0.95rem; }
+.btn-xs { padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; }
+.modal-lg { max-width: 680px; }
+.detalhe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.detalhe-item { display: flex; flex-direction: column; gap: 4px; }
+.detalhe-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.detalhe-valor { font-size: 0.95rem; font-weight: 500; color: var(--text-white); }
+.observacao-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 0.9rem; color: var(--text-normal); }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
 
 /* Client search autocomplete */
 .client-search-wrapper { position: relative; }
