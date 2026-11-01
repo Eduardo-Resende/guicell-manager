@@ -3,12 +3,18 @@
 const { Movimentacao, ItemMovimentacao, Caixa, Produto, Categoria, Cliente, Aparelho, Usuario, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-const getPeriodo = (data_inicio, data_fim) => ({
-  [Op.between]: [
-    new Date(data_inicio || '2020-01-01'),
-    new Date((data_fim || new Date().toISOString().split('T')[0]) + 'T23:59:59'),
-  ],
-});
+const getPeriodo = (data_inicio, data_fim) => {
+  const hoje = new Date();
+  const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+  const inicioStr = data_inicio || '2020-01-01';
+  const fimStr = data_fim || hojeStr;
+  return {
+    [Op.between]: [
+      new Date(inicioStr.includes('T') ? inicioStr : `${inicioStr}T00:00:00`),
+      new Date(fimStr.includes('T') ? fimStr : `${fimStr}T23:59:59.999`),
+    ],
+  };
+};
 
 // RF09: Relatório de OS por período, técnico e status
 const relatorioOS = async (req, res) => {
@@ -26,7 +32,7 @@ const relatorioOS = async (req, res) => {
         { model: Usuario,  as: 'tecnico',  attributes: ['nome'] },
         { model: ItemMovimentacao, as: 'itens', attributes: ['quantidade', 'valor_unitario'] },
       ],
-      order: [['data_movimentacao', 'ASC']],
+      order: [['data_movimentacao', 'DESC'], ['id_movimentacao', 'DESC']],
     });
 
     const calcularValorOS = (os) => {
@@ -58,6 +64,7 @@ const relatorioVendas = async (req, res) => {
       where: { origem: 'venda', data_movimentacao: getPeriodo(data_inicio, data_fim) },
       include: [
         { model: Cliente, as: 'cliente', attributes: ['nome'] },
+        { model: Usuario, as: 'usuario', attributes: ['nome'] },
         {
           model: ItemMovimentacao, as: 'itens',
           include: [{
@@ -67,7 +74,7 @@ const relatorioVendas = async (req, res) => {
           }],
         },
       ],
-      order: [['data_movimentacao', 'ASC']],
+      order: [['data_movimentacao', 'DESC'], ['id_movimentacao', 'DESC']],
     });
 
     const totais = {
@@ -88,7 +95,7 @@ const relatorioCaixa = async (req, res) => {
       data: getPeriodo(data_inicio, data_fim),
       categoria: { [Op.notIn]: ['Abertura de Caixa', 'Fechamento de Caixa'] },
     };
-    const movimentacoes = await Caixa.findAll({ where, order: [['data', 'ASC']] });
+    const movimentacoes = await Caixa.findAll({ where, order: [['data', 'DESC'], ['id_caixa', 'DESC']] });
     const totais = await Caixa.findAll({
       where,
       attributes: ['tipo', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
