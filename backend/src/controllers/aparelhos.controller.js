@@ -75,6 +75,11 @@ const criar = async (req, res) => {
     const cliente = await Cliente.findByPk(id_cliente);
     if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
+    const validacao = await phoneCatalogService.validarMarcaEModelo(marca, modelo);
+    if (!validacao.valido) {
+      return res.status(400).json({ error: validacao.erro });
+    }
+
     const finalImei = (imei && imei.trim()) ? imei.trim() : null;
 
     if (finalImei) {
@@ -102,6 +107,11 @@ const atualizar = async (req, res) => {
     const aparelho = await Aparelho.findByPk(req.params.id);
     if (!aparelho) return res.status(404).json({ error: 'Aparelho não encontrado.' });
     const { marca, modelo, imei, observacoes } = req.body;
+
+    const validacao = await phoneCatalogService.validarMarcaEModelo(marca, modelo);
+    if (!validacao.valido) {
+      return res.status(400).json({ error: validacao.erro });
+    }
 
     // Registra/garante marca e modelo na tabela marcas e modelos do banco (Alimentação Incremental)
     await phoneCatalogService.garantirMarcaEModelo(marca, modelo);

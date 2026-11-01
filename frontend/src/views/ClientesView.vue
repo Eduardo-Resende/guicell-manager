@@ -271,7 +271,7 @@
                 </div>
               </div>
 
-              <!-- Modelo (combobox com busca, habilitado só com marca) -->
+              <!-- Modelo (combobox com busca — funciona com ou sem marca selecionada) -->
               <div class="form-group">
                 <label>Modelo *</label>
                 <div class="combobox-wrapper" ref="modeloWrapper">
@@ -285,41 +285,55 @@
                       @keydown.enter.prevent="selectFirstModelo"
                       @keydown.esc="showModeloDropdown = false"
                       class="input-control"
-                      :placeholder="aparelhoForm.marcaBusca.trim() ? 'Pesquisar ou digitar modelo (Ex: Galaxy J1 Mini)...' : 'Digite a marca primeiro'"
-                      :disabled="!aparelhoForm.marcaBusca.trim()"
+                      :placeholder="aparelhoForm.marcaBusca.trim() ? `Pesquisar modelo da ${aparelhoForm.marcaBusca.trim()}...` : 'Pesquisar modelo (preenche a marca automaticamente)...'"
                       autocomplete="off"
                     />
                     <svg v-if="aparelhoForm.modeloBusca" @mousedown.prevent="clearModelo" class="combobox-clear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
                   </div>
-                  <div v-if="showModeloDropdown && (modelosFiltrados.length > 0 || aparelhoForm.modeloBusca.trim())" class="combobox-dropdown">
+                  <div v-if="showModeloDropdown && (modelosFiltrados.length > 0 || aparelhoForm.modeloBusca.trim() || isSearchingAPI)" class="combobox-dropdown">
                     <div
-                      v-for="m in modelosFiltrados"
-                      :key="m"
-                      class="combobox-option"
-                      @mousedown.prevent="selectModelo(m)"
+                      v-for="item in modelosFiltrados"
+                      :key="`${item.marca}-${item.modelo}`"
+                      class="combobox-option flex justify-between items-center"
+                      @mousedown.prevent="selectModelo(item)"
                     >
-                      {{ m }}
-                    </div>
-                    <div
-                      v-if="aparelhoForm.modeloBusca.trim() && !isSearchingAPI"
-                      class="combobox-option combobox-option-api"
-                      @mousedown.prevent="buscarModeloAPIExterna"
-                    >
-                      🌐 Pesquisar "{{ aparelhoForm.modeloBusca.trim() }}" na API (MobileAPI.dev)...
+                      <span>🔍 {{ item.modelo }}</span>
+                      <span v-if="!aparelhoForm.marcaBusca.trim() && item.marca" class="badge badge-info text-xs">{{ item.marca }}</span>
                     </div>
                     <div v-if="isSearchingAPI" class="combobox-option text-muted">
-                      ⏳ Consultando API externa MobileAPI.dev...
+                      ⏳ Buscando sugestões...
                     </div>
                     <div
-                      v-if="aparelhoForm.modeloBusca.trim() && !modelosFiltrados.includes(aparelhoForm.modeloBusca.trim())"
+                      v-if="!isSearchingAPI && modelosFiltrados.length === 0 && aparelhoForm.modeloBusca.trim()"
+                      class="combobox-option text-muted text-xs"
+                    >
+                      Nenhum modelo oficial encontrado{{ aparelhoForm.marcaBusca.trim() ? ` para ${aparelhoForm.marcaBusca.trim()}` : '' }}.
+                    </div>
+                    <div
+                      v-if="aparelhoForm.modeloBusca.trim() && !erroMarcaModelo && !modelosFiltrados.some(m => m.modelo.toLowerCase() === aparelhoForm.modeloBusca.trim().toLowerCase())"
                       class="combobox-option combobox-option-custom"
                       @mousedown.prevent="selectModelo(aparelhoForm.modeloBusca.trim())"
                     >
                       ➕ Usar "{{ aparelhoForm.modeloBusca.trim() }}" (Cadastrar)
                     </div>
                   </div>
+                </div>
+                <div
+                  v-if="erroMarcaModelo"
+                  class="mt-2"
+                  style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; color: #fca5a5; display: flex; justify-content: space-between; align-items: center; gap: 8px;"
+                >
+                  <span>⚠️ {{ erroMarcaModelo.mensagem }}</span>
+                  <button
+                    v-if="erroMarcaModelo.marcaCorreta"
+                    type="button"
+                    class="btn btn-secondary btn-xs"
+                    @click="selectMarca(erroMarcaModelo.marcaCorreta)"
+                  >
+                    Mudar para {{ erroMarcaModelo.marcaCorreta }}
+                  </button>
                 </div>
               </div>
 
@@ -353,7 +367,7 @@
                   type="button"
                   class="btn btn-sm"
                   @click="submitAparelho"
-                  :disabled="!aparelhoForm.marcaBusca.trim() || !aparelhoForm.modeloBusca.trim()"
+                  :disabled="!aparelhoForm.marcaBusca.trim() || !aparelhoForm.modeloBusca.trim() || !!erroMarcaModelo"
                 >
                   {{ editingAparelhoId ? 'Salvar Alterações' : 'Adicionar Aparelho' }}
                 </button>
@@ -412,10 +426,30 @@
 </template>
 
 <script>
-import { defineComponent, ref, onMounted, watch } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { clientesService, aparelhosService } from '../services/index.js';
 import { formatPhone, formatCpfCnpj, unmask, validatePhone, validateCpfCnpj } from '../utils/formatters.js';
 import { formatarData } from '../utils/formatDate.js';
+
+const BRAND_EXCLUSIVE_PATTERNS = [
+  { brand: 'Apple', regex: /\b(iphone|ipad|ipod|apple\s*watch)\b/i },
+  { brand: 'Samsung', regex: /\b(galaxy)\b/i },
+  { brand: 'Xiaomi', regex: /\b(redmi|poco|pocophone|xiaomi)\b/i },
+  { brand: 'Motorola', regex: /\b(moto|motorola|razr)\b/i },
+  { brand: 'ASUS', regex: /\b(zenfone|rog\s*phone)\b/i },
+  { brand: 'Google', regex: /\b(pixel)\b/i },
+  { brand: 'Realme', regex: /\b(realme|narzo)\b/i },
+  { brand: 'Infinix', regex: /\b(infinix)\b/i },
+  { brand: 'Sony', regex: /\b(xperia)\b/i },
+  { brand: 'Huawei', regex: /\b(huawei)\b/i },
+  { brand: 'Honor', regex: /\b(honor)\b/i },
+  { brand: 'OnePlus', regex: /\b(oneplus)\b/i },
+  { brand: 'OPPO', regex: /\b(oppo|reno)\b/i },
+  { brand: 'Nokia', regex: /\b(nokia|lumia)\b/i },
+  { brand: 'Tecno', regex: /\b(tecno|camon|pova)\b/i },
+  { brand: 'Positivo', regex: /\b(twist)\b/i },
+  { brand: 'Multilaser', regex: /\b(multilaser)\b/i },
+];
 
 export default defineComponent({
   name: 'ClientesView',
@@ -452,11 +486,45 @@ export default defineComponent({
       marcaSelecionada: '',
       modeloBusca: '',
       modeloSelecionado: '',
+      marcaDoModeloSelecionado: '',
       imei: '',
       observacoes: ''
     });
 
-    // ── API REST: Marcas & Modelos ──────────────────────────────────
+    const erroMarcaModelo = computed(() => {
+      const marca = (aparelhoForm.value.marcaBusca || '').trim();
+      const modelo = (aparelhoForm.value.modeloBusca || '').trim();
+      if (!marca || !modelo) return null;
+
+      const normMarca = marca.toLowerCase();
+
+      // 1. Se o modelo foi selecionado de uma marca conhecida e o usuário trocou a marca manualmente
+      const marcaVinculada = (aparelhoForm.value.marcaDoModeloSelecionado || '').trim();
+      if (marcaVinculada && marcaVinculada.toLowerCase() !== normMarca) {
+        return {
+          marcaCorreta: marcaVinculada,
+          mensagem: `O modelo "${modelo}" pertence à marca "${marcaVinculada}", não à marca "${marca}".`
+        };
+      }
+
+      // 2. Verifica assinaturas exclusivas (ex: Redmi em Samsung, iPhone em Motorola)
+      for (const { brand, regex } of BRAND_EXCLUSIVE_PATTERNS) {
+        if (regex.test(modelo) && brand.toLowerCase() !== normMarca) {
+          return {
+            marcaCorreta: brand,
+            mensagem: `O modelo "${modelo}" pertence à marca "${brand}", não à marca "${marca}".`
+          };
+        }
+      }
+
+      return null;
+    });
+
+    // ── API REST: Marcas & Modelos (com Debounce e Controle de Concorrência) ──
+    let marcaDebounceTimer = null;
+    let modeloDebounceTimer = null;
+    let modeloRequestId = 0;
+
     const fetchMarcasAPI = async (q = '') => {
       try {
         const data = await aparelhosService.buscarMarcas(q);
@@ -467,15 +535,32 @@ export default defineComponent({
     };
 
     const fetchModelosAPI = async (marca = '', q = '') => {
+      const mTrim = (marca || '').trim();
+      const qTrim = (q || '').trim();
+
+      if (!mTrim && !qTrim) {
+        modelosFiltrados.value = [];
+        isSearchingAPI.value = false;
+        return;
+      }
+
+      const currentReqId = ++modeloRequestId;
+      isSearchingAPI.value = true;
       try {
-        if (!marca) {
-          modelosFiltrados.value = [];
-          return;
+        const data = await aparelhosService.buscarModelos(mTrim, qTrim);
+        if (currentReqId === modeloRequestId) {
+          modelosFiltrados.value = (data || []).map(item =>
+            typeof item === 'object'
+              ? { modelo: item.modelo, marca: item.marca || mTrim }
+              : { modelo: String(item), marca: mTrim }
+          );
         }
-        const data = await aparelhosService.buscarModelos(marca, q);
-        modelosFiltrados.value = data || [];
       } catch (err) {
         console.error('Erro ao buscar modelos via API:', err);
+      } finally {
+        if (currentReqId === modeloRequestId) {
+          isSearchingAPI.value = false;
+        }
       }
     };
 
@@ -483,8 +568,11 @@ export default defineComponent({
     const onMarcaInput = () => {
       aparelhoForm.value.marcaSelecionada = aparelhoForm.value.marcaBusca.trim();
       showMarcaDropdown.value = true;
-      fetchMarcasAPI(aparelhoForm.value.marcaBusca);
-      fetchModelosAPI(aparelhoForm.value.marcaBusca, aparelhoForm.value.modeloBusca);
+      clearTimeout(marcaDebounceTimer);
+      marcaDebounceTimer = setTimeout(() => {
+        fetchMarcasAPI(aparelhoForm.value.marcaBusca);
+        fetchModelosAPI(aparelhoForm.value.marcaBusca, aparelhoForm.value.modeloBusca);
+      }, 150);
     };
 
     const onMarcaFocus = () => {
@@ -511,10 +599,12 @@ export default defineComponent({
     const clearMarca = () => {
       aparelhoForm.value.marcaBusca = '';
       aparelhoForm.value.marcaSelecionada = '';
-      aparelhoForm.value.modeloBusca = '';
-      aparelhoForm.value.modeloSelecionado = '';
       marcasFiltradas.value = [];
-      modelosFiltrados.value = [];
+      if (aparelhoForm.value.modeloBusca.trim()) {
+        fetchModelosAPI('', aparelhoForm.value.modeloBusca);
+      } else {
+        modelosFiltrados.value = [];
+      }
     };
 
     const onMarcaBlur = () => {
@@ -528,9 +618,14 @@ export default defineComponent({
 
     // ── Combobox: Modelo ────────────────────────────────────────────
     const onModeloInput = () => {
-      aparelhoForm.value.modeloSelecionado = aparelhoForm.value.modeloBusca.trim();
+      const texto = aparelhoForm.value.modeloBusca.trim();
+      aparelhoForm.value.modeloSelecionado = texto;
+      aparelhoForm.value.marcaDoModeloSelecionado = '';
       showModeloDropdown.value = true;
-      fetchModelosAPI(aparelhoForm.value.marcaBusca, aparelhoForm.value.modeloBusca);
+      clearTimeout(modeloDebounceTimer);
+      modeloDebounceTimer = setTimeout(() => {
+        fetchModelosAPI(aparelhoForm.value.marcaBusca, texto);
+      }, 150);
     };
 
     const onModeloFocus = () => {
@@ -538,9 +633,21 @@ export default defineComponent({
       fetchModelosAPI(aparelhoForm.value.marcaBusca, aparelhoForm.value.modeloBusca);
     };
 
-    const selectModelo = (modelo) => {
-      aparelhoForm.value.modeloBusca = modelo;
-      aparelhoForm.value.modeloSelecionado = modelo;
+    const selectModelo = (item) => {
+      const isObj = typeof item === 'object' && item !== null;
+      const nomeModelo = isObj ? item.modelo : String(item);
+      const nomeMarca = isObj ? (item.marca || '') : '';
+
+      aparelhoForm.value.modeloBusca = nomeModelo;
+      aparelhoForm.value.modeloSelecionado = nomeModelo;
+      aparelhoForm.value.marcaDoModeloSelecionado = nomeMarca;
+
+      // Se a marca estava vazia e o modelo tem marca conhecida, preenche a marca automaticamente!
+      if (!aparelhoForm.value.marcaBusca.trim() && nomeMarca) {
+        aparelhoForm.value.marcaBusca = nomeMarca;
+        aparelhoForm.value.marcaSelecionada = nomeMarca;
+      }
+
       showModeloDropdown.value = false;
     };
 
@@ -556,6 +663,7 @@ export default defineComponent({
     const clearModelo = () => {
       aparelhoForm.value.modeloBusca = '';
       aparelhoForm.value.modeloSelecionado = '';
+      aparelhoForm.value.marcaDoModeloSelecionado = '';
       modelosFiltrados.value = [];
     };
 
@@ -563,6 +671,17 @@ export default defineComponent({
       setTimeout(() => {
         if (aparelhoForm.value.modeloBusca.trim()) {
           aparelhoForm.value.modeloSelecionado = aparelhoForm.value.modeloBusca.trim();
+          // Se o texto digitado bate exatamente com um dos modelos filtrados, vincula a marca dele
+          const match = modelosFiltrados.value.find(
+            m => m.modelo.toLowerCase() === aparelhoForm.value.modeloBusca.trim().toLowerCase()
+          );
+          if (match && match.marca) {
+            aparelhoForm.value.marcaDoModeloSelecionado = match.marca;
+            if (!aparelhoForm.value.marcaBusca.trim()) {
+              aparelhoForm.value.marcaBusca = match.marca;
+              aparelhoForm.value.marcaSelecionada = match.marca;
+            }
+          }
         }
         showModeloDropdown.value = false;
       }, 150);
@@ -574,17 +693,10 @@ export default defineComponent({
       try {
         const termo = `${aparelhoForm.value.marcaBusca} ${aparelhoForm.value.modeloBusca}`.trim();
         const resultados = await aparelhosService.consultarAPIExterna(termo);
-        
-        // Recarrega as marcas e modelos locais (que foram alimentados incrementalmente pela API)
-        await fetchMarcasAPI(aparelhoForm.value.marcaBusca);
-        await fetchModelosAPI(aparelhoForm.value.marcaBusca, aparelhoForm.value.modeloBusca);
-
         if (resultados && resultados.length > 0) {
-          const match = resultados.find(r => r.model.toLowerCase().includes(aparelhoForm.value.modeloBusca.toLowerCase())) || resultados[0];
-          if (match) {
-            selectModelo(match.model);
-            if (match.brand) selectMarca(match.brand);
-          }
+          const novosModelos = resultados.map(r => ({ modelo: r.model, marca: r.brand }));
+          modelosFiltrados.value = novosModelos;
+          showModeloDropdown.value = true;
         }
       } catch (err) {
         console.error('Erro ao consultar API externa:', err);
@@ -719,6 +831,7 @@ export default defineComponent({
         marcaSelecionada: '',
         modeloBusca: '',
         modeloSelecionado: '',
+        marcaDoModeloSelecionado: '',
         imei: '',
         observacoes: ''
       };
@@ -744,6 +857,7 @@ export default defineComponent({
         marcaSelecionada: ap.marca,
         modeloBusca: ap.modelo,
         modeloSelecionado: ap.modelo,
+        marcaDoModeloSelecionado: ap.marca,
         imei: ap.imei || '',
         observacoes: ap.observacoes || ''
       };
@@ -758,6 +872,11 @@ export default defineComponent({
 
       if (!marca || !modelo) {
         alert('Marca e modelo são obrigatórios.');
+        return;
+      }
+
+      if (erroMarcaModelo.value) {
+        alert(erroMarcaModelo.value.mensagem);
         return;
       }
 
@@ -842,6 +961,7 @@ export default defineComponent({
       editingId,
       form,
       aparelhoForm,
+      erroMarcaModelo,
       editingAparelhoId,
       clients,
       filteredClients: clients,
@@ -854,11 +974,13 @@ export default defineComponent({
       modelosFiltrados,
       isSearchingAPI,
       onMarcaInput,
+      onMarcaFocus,
       selectMarca,
       selectFirstMarca,
       clearMarca,
       onMarcaBlur,
       onModeloInput,
+      onModeloFocus,
       selectModelo,
       selectFirstModelo,
       clearModelo,
