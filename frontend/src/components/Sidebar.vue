@@ -47,7 +47,8 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import { defineComponent, computed } from 'vue';
+import { usePermissoes } from '../composables/usePermissoes';
 
 const iconDashboard = `
   <rect x="3" y="3" width="7" height="9" />
@@ -100,6 +101,12 @@ const iconRelatorios = `
   <line x1="6" y1="20" x2="6" y2="14" />
 `;
 
+const iconPermissoes = `
+  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  <circle cx="12" cy="11" r="3" />
+  <line x1="12" y1="14" x2="12" y2="17" />
+`;
+
 const iconUsuarios = `
   <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
   <circle cx="9" cy="7" r="4" />
@@ -113,36 +120,35 @@ export default defineComponent({
     activeView: {
       type: String,
       required: true
+    },
+    user: {
+      type: Object,
+      default: null
     }
   },
   emits: ['change-view', 'logout'],
-  setup() {
-    const usuario = ref({ nome: 'Operador', perfil: 'Atendente' });
+  setup(props) {
+    const { usuarioAtual, podeModulo } = usePermissoes();
 
-    const menuItems = computed(() => {
-      const items = [
-        { view: 'dashboard', label: 'Dashboard', iconContent: iconDashboard },
-        { view: 'clientes', label: 'Clientes', iconContent: iconClientes },
-        { view: 'os', label: 'Ordens de Serviço', iconContent: iconOs },
-        { view: 'estoque', label: 'Estoque', iconContent: iconEstoque },
-        { view: 'compras', label: 'Compras', iconContent: iconCompras },
-        { view: 'vendas', label: 'Vendas (PDV)', iconContent: iconVendas },
-        { view: 'caixa', label: 'Caixa', iconContent: iconCaixa },
-        { view: 'relatorios', label: 'Relatórios', iconContent: iconRelatorios },
-      ];
-
-      if (usuario.value.perfil === 'Gerente') {
-        items.push({ view: 'usuarios', label: 'Usuários', iconContent: iconUsuarios });
-      }
-
-      return items;
+    const usuario = computed(() => {
+      return usuarioAtual.value || props.user || { nome: 'Operador', perfil: 'Atendente' };
     });
 
-    onMounted(() => {
-      const cached = localStorage.getItem('guicell_usuario');
-      if (cached) {
-        usuario.value = JSON.parse(cached);
-      }
+    const menuItems = computed(() => {
+      const catalogoMenus = [
+        { view: 'dashboard', label: 'Dashboard', iconContent: iconDashboard, modulo: 'dashboard' },
+        { view: 'clientes', label: 'Clientes', iconContent: iconClientes, modulo: 'clientes' },
+        { view: 'os', label: 'Ordens de Serviço', iconContent: iconOs, modulo: 'os' },
+        { view: 'estoque', label: 'Estoque', iconContent: iconEstoque, modulo: 'estoque' },
+        { view: 'compras', label: 'Compras', iconContent: iconCompras, modulo: 'compras' },
+        { view: 'vendas', label: 'Vendas (PDV)', iconContent: iconVendas, modulo: 'vendas' },
+        { view: 'caixa', label: 'Caixa', iconContent: iconCaixa, modulo: 'caixa' },
+        { view: 'relatorios', label: 'Relatórios', iconContent: iconRelatorios, modulo: 'relatorios' },
+        { view: 'usuarios', label: 'Usuários', iconContent: iconUsuarios, modulo: 'usuarios' },
+        { view: 'permissoes', label: 'Perfis de Acesso', iconContent: iconPermissoes, modulo: 'permissoes' },
+      ];
+
+      return catalogoMenus.filter((item) => podeModulo(item.modulo));
     });
 
     return {
@@ -432,4 +438,3 @@ export default defineComponent({
   pointer-events: auto;
 }
 </style>
-

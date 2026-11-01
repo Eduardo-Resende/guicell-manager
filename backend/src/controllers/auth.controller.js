@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const axios = require('axios');
 const { Op } = require('sequelize');
 const { Usuario, LogAuditoria } = require('../models');
+const { resolverPermissoesUsuario } = require('./permissoes.controller');
 
 const login = async (req, res) => {
   try {
@@ -35,6 +36,8 @@ const login = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
 
+    const permissoes = await resolverPermissoesUsuario(usuario);
+
     return res.json({
       token,
       usuario: {
@@ -44,6 +47,7 @@ const login = async (req, res) => {
         perfil: usuario.perfil,
         email: usuario.email,
         telefone: usuario.telefone,
+        permissoes,
       },
     });
   } catch (err) {
@@ -58,7 +62,10 @@ const me = async (req, res) => {
       attributes: { exclude: ['senha_hash', 'recuperacao_codigo', 'recuperacao_expira'] },
     });
     if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' });
-    return res.json(usuario);
+    const permissoes = await resolverPermissoesUsuario(usuario);
+    const dados = usuario.toJSON();
+    dados.permissoes = permissoes;
+    return res.json(dados);
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno no servidor.' });
   }

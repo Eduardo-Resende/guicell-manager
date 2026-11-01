@@ -19,7 +19,7 @@
     <!-- Cards Grid -->
     <div class="metrics-grid">
       <!-- Card 1: OS Abertas -->
-      <div class="card metric-card">
+      <div v-if="$pode('dashboard.ver')" class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">OS em Aberto</span>
           <span class="metric-value">{{ osAbertas }}</span>
@@ -38,7 +38,7 @@
       </div>
 
       <!-- Card 2: OS Concluídas -->
-      <div class="card metric-card">
+      <div v-if="$pode('dashboard.ver')" class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">OS Concluídas Hoje</span>
           <span class="metric-value">{{ osConcluidas }}</span>
@@ -54,8 +54,8 @@
         </div>
       </div>
 
-      <!-- Card 3: Valor em Caixa -->
-      <div class="card metric-card">
+      <!-- Card 3: Valor em Caixa (Faturamento e Valores) -->
+      <div v-if="$pode('dashboard.faturamento')" class="card metric-card">
         <div class="metric-info">
           <span class="metric-label">Caixa do Dia</span>
           <span class="metric-value">R$ {{ saldoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</span>
@@ -72,7 +72,7 @@
       </div>
 
       <!-- Card 4: Estoque Mínimo -->
-      <div class="card metric-card" :class="{ 'highlight-danger': prodEstoqueMinimo > 0 }">
+      <div v-if="$pode('dashboard.ver')" class="card metric-card" :class="{ 'highlight-danger': prodEstoqueMinimo > 0 }">
         <div class="metric-info">
           <span class="metric-label">Estoque Crítico</span>
           <span class="metric-value" :class="{ 'text-danger': prodEstoqueMinimo > 0 }">{{ prodEstoqueMinimo }}</span>
@@ -91,7 +91,7 @@
     </div>
 
     <!-- Charts and Table Section -->
-    <div class="dashboard-content-grid">
+    <div v-if="$pode('dashboard.ver')" class="dashboard-content-grid">
       <!-- Chart Card -->
       <div class="card chart-card">
         <h2 class="section-title">Ordens de Serviço por Status</h2>
@@ -317,7 +317,7 @@ export default defineComponent({
 /* Metrics Grid */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
 }
 

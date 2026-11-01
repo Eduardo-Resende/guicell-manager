@@ -146,6 +146,16 @@ const atualizarStatus = async (req, res) => {
       await t.rollback(); return res.status(400).json({ error: 'Não é possível alterar uma OS já entregue.' });
     }
 
+    const perms = req.usuario?.permissoes || {};
+    if (status && status !== os.status_os) {
+      if (status === 'Cancelado' && !perms['os.excluir']) {
+        await t.rollback(); return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para cancelar ordens de serviço (os.excluir).' });
+      }
+      if (status !== 'Cancelado' && !perms['os.status']) {
+        await t.rollback(); return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para alterar o status da OS (os.status).' });
+      }
+    }
+
     if (itens !== undefined) {
       try { await atualizarItensEstoque(os.id_movimentacao, itens, t); }
       catch (error) { await t.rollback(); return res.status(400).json({ error: error.message }); }

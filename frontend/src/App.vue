@@ -18,10 +18,11 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import Sidebar from './components/Sidebar.vue';
 import { authService } from './services/index.js';
+import { sincronizarComServidor, atualizarPermissoesLocais, podeModulo, obterPrimeiraRotaPermitida } from './composables/usePermissoes';
 
 export default defineComponent({
   name: 'App',
@@ -33,9 +34,29 @@ export default defineComponent({
     const isLoggedIn = ref(authService.isAuthenticated());
     const currentRoute = computed(() => route.name?.toLowerCase() || 'dashboard');
 
-    // Sincroniza estado de login ao mudar de rota
-    watch(route, () => {
+    const validarRotaAtual = () => {
+      if (isLoggedIn.value && route.meta?.modulo && !podeModulo(route.meta.modulo)) {
+        const destino = obterPrimeiraRotaPermitida();
+        if (destino && destino !== route.path) {
+          router.replace(destino);
+        }
+      }
+    };
+
+    // Sincroniza estado de login e permissões ao mudar de rota
+    watch(route, async () => {
       isLoggedIn.value = authService.isAuthenticated();
+      if (isLoggedIn.value) {
+        atualizarPermissoesLocais();
+        validarRotaAtual();
+      }
+    });
+
+    onMounted(async () => {
+      if (isLoggedIn.value) {
+        await sincronizarComServidor();
+        validarRotaAtual();
+      }
     });
 
     const navigateTo = (view) => {

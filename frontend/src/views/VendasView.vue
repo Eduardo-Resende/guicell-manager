@@ -7,9 +7,10 @@
       </div>
       <div class="header-actions">
         <button
+          v-if="$pode('vendas.ver') || $pode('vendas.criar')"
           class="btn btn-fiado-header"
           :class="{ active: activeSubTab === 'fiado' }"
-          @click="activeSubTab = activeSubTab === 'fiado' ? 'pdv' : 'fiado'"
+          @click="activeSubTab = activeSubTab === 'fiado' ? ($pode('vendas.criar') ? 'pdv' : 'history') : 'fiado'"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
@@ -18,7 +19,11 @@
           Vendas em Aberto
           <span v-if="pendentes.length > 0" class="badge-count">{{ pendentes.length }}</span>
         </button>
-        <button class="btn btn-secondary" @click="activeSubTab = activeSubTab === 'pdv' ? 'history' : 'pdv'">
+        <button
+          v-if="(activeSubTab === 'pdv' && $pode('vendas.ver')) || (activeSubTab !== 'pdv' && $pode('vendas.criar'))"
+          class="btn btn-secondary"
+          @click="activeSubTab = activeSubTab === 'pdv' ? 'history' : 'pdv'"
+        >
           {{ activeSubTab === 'pdv' ? 'Ver Historico de Vendas' : 'Ir para Frente de Caixa' }}
         </button>
       </div>
@@ -136,7 +141,7 @@
           </div>
 
           <div class="grid grid-cols-2 gap-3 mb-2">
-            <div class="form-group m-0">
+            <div class="form-group m-0" v-if="$pode('vendas.desconto')">
               <label>Desconto (R$)</label>
               <input type="number" step="0.01" v-model="desconto" class="input-control" placeholder="0,00" />
             </div>
@@ -174,6 +179,7 @@
           </div>
 
           <button
+            v-if="$pode('vendas.criar')"
             class="btn btn-block"
             :class="{ 'btn-fiado': formaPagamento === 'Fiado' }"
             :disabled="cart.length === 0"
@@ -230,10 +236,10 @@
                   <button class="btn btn-secondary btn-xs" @click="verDetalhesVenda(sale)">
                     Detalhes
                   </button>
-                  <button class="btn-success-outline" @click="openPagarModal(sale)">
+                  <button v-if="$pode('vendas.criar')" class="btn-success-outline" @click="openPagarModal(sale)">
                     Marcar como Pago
                   </button>
-                  <button class="btn btn-danger btn-xs" @click="openCancelarModal(sale)">
+                  <button v-if="$pode('vendas.cancelar')" class="btn btn-danger btn-xs" @click="openCancelarModal(sale)">
                     Cancelar
                   </button>
                 </div>
@@ -292,7 +298,7 @@
                     Detalhes
                   </button>
                   <button
-                    v-if="sale.status !== 'cancelado'"
+                    v-if="sale.status !== 'cancelado' && $pode('vendas.cancelar')"
                     class="btn btn-danger btn-xs"
                     @click="openCancelarModal(sale)"
                   >
@@ -381,7 +387,7 @@
           </div>
         </div>
         <div class="modal-footer flex gap-2 justify-end">
-          <button v-if="vendaDetalhes.status !== 'cancelado'" class="btn btn-danger" @click="openCancelarModal(vendaDetalhes)">
+          <button v-if="vendaDetalhes.status !== 'cancelado' && $pode('vendas.cancelar')" class="btn btn-danger" @click="openCancelarModal(vendaDetalhes)">
             Cancelar Venda
           </button>
           <button class="btn btn-secondary" @click="vendaDetalhes = null">Fechar</button>
@@ -495,11 +501,12 @@
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { produtosService, vendasService, clientesService } from '../services/index.js';
 import { formatarDataHora } from '../utils/formatDate.js';
+import { pode } from '../composables/usePermissoes';
 
 export default defineComponent({
   name: 'VendasView',
   setup() {
-    const activeSubTab = ref('pdv');
+    const activeSubTab = ref(pode('vendas.criar') ? 'pdv' : 'history');
     const productQuery = ref('');
     const desconto = ref(0);
     const formaPagamento = ref('PIX');

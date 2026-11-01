@@ -10,6 +10,7 @@ const produtosRoutes = require('./routes/produtos.routes');
 const aparelhosRoutes = require('./routes/aparelhos.routes');
 const categoriasRoutes = require('./routes/categorias.routes');
 const fornecedoresRoutes = require('./routes/fornecedores.routes');
+const permissoesRoutes = require('./routes/permissoes.routes');
 const { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter, comprasRouter } = require('./routes/outros.routes');
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/vendas', vendasRouter);
 app.use('/api/caixa', caixaRouter);
 app.use('/api/relatorios', relatoriosRouter);
 app.use('/api/usuarios', usuariosRouter);
+app.use('/api/permissoes', permissoesRoutes);
 app.use('/api/categorias', categoriasRoutes);
 app.use('/api/fornecedores', fornecedoresRoutes);
 app.use('/api/compras', comprasRouter);
@@ -60,10 +62,12 @@ app.use((req, res) => {
   res.status(404).json({ error: `Rota não encontrada: ${req.method} ${req.path}` });
 });
 
-// ─── Error Handler ────────────────────────────────────────────────────────────
+// ─── Error Handler Global ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('[App] Erro não tratado:', err);
-  res.status(500).json({ error: 'Erro interno no servidor.' });
+  console.error('[Error Handler]', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Erro interno do servidor.',
+  });
 });
 
 module.exports = app;

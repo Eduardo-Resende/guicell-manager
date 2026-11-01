@@ -6,7 +6,7 @@
         <p class="page-subtitle">Registro de compras, gestão de fornecedores e histórico de aquisições.</p>
       </div>
       <div class="flex gap-2" v-if="activeTab === 'historico'">
-        <button class="btn" @click="activeTab = 'nova'">
+        <button v-if="$pode('compras.criar')" class="btn" @click="activeTab = 'nova'">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -17,13 +17,13 @@
 
     <!-- Tabs -->
     <div class="tabs-container">
-      <button :class="['tab-btn', { active: activeTab === 'nova' }]" @click="activeTab = 'nova'">
+      <button v-if="$pode('compras.criar')" :class="['tab-btn', { active: activeTab === 'nova' }]" @click="activeTab = 'nova'">
         Nova Compra
       </button>
-      <button :class="['tab-btn', { active: activeTab === 'historico' }]" @click="goToHistorico">
+      <button v-if="$pode('compras.ver') || $pode('compras.cancelar')" :class="['tab-btn', { active: activeTab === 'historico' }]" @click="goToHistorico">
         Histórico de Compras
       </button>
-      <button :class="['tab-btn', { active: activeTab === 'fornecedores' }]" @click="goToFornecedores">
+      <button v-if="$pode('compras.fornecedores') || $pode('compras.ver')" :class="['tab-btn', { active: activeTab === 'fornecedores' }]" @click="goToFornecedores">
         Fornecedores
       </button>
     </div>
@@ -242,7 +242,7 @@
                     <button class="btn btn-secondary btn-xs" @click="verDetalhes(c)">
                       Detalhes
                     </button>
-                    <button v-if="c.status_pagamento !== 'cancelado'" class="btn btn-danger btn-xs" @click="abrirModalCancelarCompra(c)">
+                    <button v-if="c.status_pagamento !== 'cancelado' && $pode('compras.cancelar')" class="btn btn-danger btn-xs" @click="abrirModalCancelarCompra(c)">
                       Cancelar
                     </button>
                   </div>
@@ -274,7 +274,7 @@
               </svg>
               <input type="text" v-model="buscaFornecedor" @input="buscarFornecedores" placeholder="Buscar fornecedor..." class="input-control search-input" />
             </div>
-            <button class="btn btn-compra" @click="abrirNovoFornecedor">
+            <button v-if="$pode('compras.fornecedores')" class="btn btn-compra" @click="abrirNovoFornecedor">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -307,7 +307,7 @@
                     </span>
                   </td>
                   <td class="text-right">
-                    <div class="flex gap-2 justify-end">
+                    <div v-if="$pode('compras.fornecedores')" class="flex gap-2 justify-end">
                       <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="editarFornecedor(f)">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
                           <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
@@ -442,7 +442,7 @@
           </div>
         </div>
         <div class="modal-footer flex gap-2 justify-end">
-          <button v-if="compraDetalhes.status_pagamento !== 'cancelado'" class="btn btn-danger" @click="abrirModalCancelarCompra(compraDetalhes)">
+          <button v-if="compraDetalhes.status_pagamento !== 'cancelado' && $pode('compras.cancelar')" class="btn btn-danger" @click="abrirModalCancelarCompra(compraDetalhes)">
             Cancelar Compra
           </button>
           <button class="btn btn-secondary" @click="compraDetalhes = null">Fechar</button>
@@ -546,11 +546,17 @@ import { defineComponent, ref, computed, onMounted } from 'vue';
 import { comprasService, fornecedoresService, produtosService, categoriasService } from '../services/index.js';
 import { formatCNPJ, formatPhone, unmask, validateCpfCnpj, validatePhone } from '../utils/formatters.js';
 import { formatarData } from '../utils/formatDate.js';
+import { pode } from '../composables/usePermissoes';
 
 export default defineComponent({
   name: 'ComprasView',
   setup() {
-    const activeTab = ref('nova');
+    const abaInicial = pode('compras.criar')
+      ? 'nova'
+      : (pode('compras.ver') || pode('compras.cancelar'))
+        ? 'historico'
+        : 'fornecedores';
+    const activeTab = ref(abaInicial);
     const salvando = ref(false);
 
     // ── Dados ──────────────────────────────────────────────────────────────────
@@ -906,6 +912,9 @@ export default defineComponent({
       await buscarFornecedores();
       await buscarProdutos();
       await buscarCategorias();
+      if (activeTab.value === 'historico') {
+        await buscarCompras();
+      }
     });
 
     return {

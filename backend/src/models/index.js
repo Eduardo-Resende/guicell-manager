@@ -27,6 +27,7 @@ const SessaoCaixa    = require('./SessaoCaixa')(sequelize, Sequelize.DataTypes);
 const LogAuditoria   = require('./LogAuditoria')(sequelize, Sequelize.DataTypes);
 const Movimentacao   = require('./Movimentacao')(sequelize, Sequelize.DataTypes);
 const ItemMovimentacao = require('./ItemMovimentacao')(sequelize, Sequelize.DataTypes);
+const Permissao      = require('./Permissao')(sequelize, Sequelize.DataTypes);
 
 // ─── Mapa de models ───────────────────────────────────────────────────────────
 const models = {
@@ -43,6 +44,7 @@ const models = {
   LogAuditoria,
   Movimentacao,
   ItemMovimentacao,
+  Permissao,
 };
 
 // Dispara as associações de cada model

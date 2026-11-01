@@ -29,7 +29,7 @@
           Recebimentos Pendentes
           <span v-if="osPendentes.length > 0" class="badge-count">{{ osPendentes.length }}</span>
         </button>
-        <button class="btn" @click="showAddModal = true">
+        <button v-if="$pode('os.criar')" class="btn" @click="showAddModal = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -151,7 +151,7 @@
             :key="os.id"
             class="kanban-card"
             :class="{ 'kanban-card--overdue': isOverdue(os) }"
-            draggable="true"
+            :draggable="$pode('os.status') && !['Entregue', 'Cancelado'].includes(os.status)"
             @dragstart="onDragStart($event, os)"
             @click="viewDetail(os)"
           >
@@ -205,7 +205,7 @@
               <td class="text-muted">{{ os.tecnico?.nome || '-' }}</td>
               <td class="font-bold text-warning">R$ {{ parseFloat(os.valor_total || 0).toFixed(2) }}</td>
               <td>
-                <button class="btn-success-outline" @click="openPagarOsModal(os)">Receber</button>
+                <button v-if="$pode('os.status')" class="btn-success-outline" @click="openPagarOsModal(os)">Receber</button>
               </td>
             </tr>
             <tr v-if="osPendentes.length === 0">
@@ -350,7 +350,7 @@
                 </div>
                 <div class="os-info-data">
                   <span class="os-info-label">Prazo Estimado</span>
-                  <input v-if="!isClosed" type="date" v-model="selectedOS.prazo_raw" class="os-info-date-input" />
+                  <input v-if="!isClosed && $pode('os.editar')" type="date" v-model="selectedOS.prazo_raw" class="os-info-date-input" />
                   <span v-else class="os-info-val">{{ selectedOS.prazo }}</span>
                 </div>
               </div>
@@ -370,14 +370,14 @@
           <!-- Technical Notes -->
           <div class="form-group">
             <label>Diagnóstico Técnico / Observações</label>
-            <textarea v-model="selectedOS.diagnostico" class="input-control text-area-control" rows="2" placeholder="Diagnóstico do técnico"></textarea>
+            <textarea v-model="selectedOS.diagnostico" :disabled="isClosed || !$pode('os.editar')" class="input-control text-area-control" rows="2" placeholder="Diagnóstico do técnico"></textarea>
           </div>
 
           <!-- Used Parts Section -->
           <div class="parts-section mb-4">
             <div class="parts-header">
               <span class="parts-title">Peças e Componentes</span>
-              <div class="parts-add-row" v-if="!isClosed">
+              <div class="parts-add-row" v-if="!isClosed && $pode('os.editar')">
                 <select v-model="newPartId" class="input-control select-control parts-select">
                   <option value="">+ Adicionar peça do estoque...</option>
                   <option v-for="p in mockProducts" :key="p.id_produto" :value="p.id_produto">
@@ -396,7 +396,7 @@
                     <th class="text-center" style="width:70px">Qtd</th>
                     <th class="text-right" style="width:100px">Unitário</th>
                     <th class="text-right" style="width:100px">Subtotal</th>
-                    <th v-if="!isClosed" style="width:60px"></th>
+                    <th v-if="!isClosed && $pode('os.editar')" style="width:60px"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -404,7 +404,7 @@
                     <td class="part-name">{{ part.descricao }}</td>
                     <td class="text-center">
                       <input
-                        v-if="!isClosed"
+                        v-if="!isClosed && $pode('os.editar')"
                         type="number"
                         v-model.number="part.qtd"
                         min="1"
@@ -415,7 +415,7 @@
                     </td>
                     <td class="text-right">R$ {{ part.preco.toFixed(2) }}</td>
                     <td class="text-right font-bold">R$ {{ (part.preco * (part.qtd || 1)).toFixed(2) }}</td>
-                    <td v-if="!isClosed" class="text-center">
+                    <td v-if="!isClosed && $pode('os.editar')" class="text-center">
                       <button type="button" class="remove-part-btn" @click="removePart(index)" title="Remover">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px">
                           <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -434,7 +434,7 @@
             <div class="totais-row">
               <div class="totais-item">
                 <span class="totais-label">Mão de Obra</span>
-                <input type="number" step="0.01" v-model.number="selectedOS.maoObra" class="totais-input" :disabled="isClosed" />
+                <input type="number" step="0.01" v-model.number="selectedOS.maoObra" class="totais-input" :disabled="isClosed || !$pode('os.editar')" />
               </div>
               <div class="totais-item">
                 <span class="totais-label">Peças</span>
@@ -442,7 +442,7 @@
               </div>
               <div class="totais-item">
                 <span class="totais-label">Desconto</span>
-                <input type="number" step="0.01" v-model.number="selectedOS.desconto" min="0" class="totais-input" :disabled="isClosed" />
+                <input type="number" step="0.01" v-model.number="selectedOS.desconto" min="0" class="totais-input" :disabled="isClosed || !$pode('os.editar')" />
               </div>
               <div class="totais-item totais-total">
                 <span class="totais-label">TOTAL FINAL</span>
@@ -455,19 +455,19 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="form-group m-0">
               <label>Atualizar Status</label>
-              <select v-model="selectedOS.status" class="input-control select-control" :disabled="isClosed">
-                <option value="Aguardando Diagnóstico">Aguardando Diagnóstico</option>
-                <option value="Aguardando Cliente">Aguardando Cliente</option>
-                <option value="Aguardando Peça">Aguardando Peça</option>
-                <option value="Em Reparo">Em Reparo</option>
-                <option value="Concluído">Concluído</option>
-                <option value="Entregue">Entregue</option>
-                <option value="Cancelado">Cancelado</option>
+              <select v-model="selectedOS.status" class="input-control select-control" :disabled="isClosed || (!$pode('os.status') && !$pode('os.excluir'))">
+                <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Diagnóstico'" value="Aguardando Diagnóstico">Aguardando Diagnóstico</option>
+                <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Cliente'" value="Aguardando Cliente">Aguardando Cliente</option>
+                <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Peça'" value="Aguardando Peça">Aguardando Peça</option>
+                <option v-if="$pode('os.status') || selectedOS.status === 'Em Reparo'" value="Em Reparo">Em Reparo</option>
+                <option v-if="$pode('os.status') || selectedOS.status === 'Concluído'" value="Concluído">Concluído</option>
+                <option v-if="$pode('os.status') || selectedOS.status === 'Entregue'" value="Entregue">Entregue</option>
+                <option v-if="$pode('os.excluir') || selectedOS.status === 'Cancelado'" value="Cancelado">Cancelado</option>
               </select>
             </div>
             <div class="form-group m-0" v-if="selectedOS.status === 'Entregue'">
               <label>Forma de Pagamento *</label>
-              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed">
+              <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed || !$pode('os.status')">
                 <option value="">Selecione a Forma de Pagamento...</option>
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Cartão">Cartão de Crédito/Débito</option>
@@ -478,7 +478,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" @click="imprimirComprovante(selectedOS)">
+          <button v-if="$pode('os.imprimir')" type="button" class="btn btn-secondary" @click="imprimirComprovante(selectedOS)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
               <polyline points="6 9 6 2 18 2 18 9" />
               <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -487,7 +487,7 @@
             <span>Imprimir</span>
           </button>
           <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Cancelar' }}</button>
-          <button v-if="!isClosed" type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
+          <button v-if="!isClosed && ($pode('os.editar') || $pode('os.status') || $pode('os.excluir'))" type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
         </div>
       </div>
     </div>
@@ -543,6 +543,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { osService, clientesService, produtosService, usuariosService, aparelhosService } from '../services/index.js';
+import { pode } from '../composables/usePermissoes';
 import OsViewer from '../components/OsViewer.vue';
 import { formatarData } from '../utils/formatDate.js';
 
@@ -919,6 +920,16 @@ export default defineComponent({
 
     const onDrop = async (event, newStatus) => {
       if (!draggedOS.value || draggedOS.value.status === newStatus) return;
+      if (!pode('os.status') && newStatus !== 'Cancelado') {
+        alert('Você não possui permissão para alterar o status da OS.');
+        draggedOS.value = null;
+        return;
+      }
+      if (newStatus === 'Cancelado' && !pode('os.excluir')) {
+        alert('Você não possui permissão para cancelar ordens de serviço.');
+        draggedOS.value = null;
+        return;
+      }
       if (['Entregue', 'Cancelado'].includes(draggedOS.value.status)) {
         alert('Não é possível mover uma OS já finalizada.');
         draggedOS.value = null;

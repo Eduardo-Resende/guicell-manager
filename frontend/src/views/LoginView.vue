@@ -500,6 +500,7 @@ import { defineComponent, ref, computed, nextTick, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import loginHero from '../assets/login-hero.png';
 import { authService } from '../services/index.js';
+import { obterPrimeiraRotaPermitida } from '../composables/usePermissoes';
 
 export default defineComponent({
   name: 'LoginView',
@@ -569,7 +570,7 @@ export default defineComponent({
       errorMsg.value = '';
       try {
         await authService.login(login.value, password.value);
-        router.push('/dashboard');
+        router.push(obterPrimeiraRotaPermitida());
       } catch (err) {
         errorMsg.value = err.response?.data?.error || 'Erro ao conectar com o servidor.';
         password.value = '';

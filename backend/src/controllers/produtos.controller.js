@@ -152,11 +152,12 @@ const remover = async (req, res) => {
   }
 };
 
-// RF06: Registrar entrada manual no estoque
+// RF06: Registrar entrada ou ajuste manual no estoque
 const registrarEntrada = async (req, res) => {
   try {
-    const { quantidade } = req.body;
-    if (!quantidade || quantidade <= 0) {
+    const { quantidade, tipo } = req.body;
+    const qtd = parseInt(quantidade);
+    if (!qtd || qtd <= 0) {
       return res.status(400).json({ error: 'Quantidade deve ser maior que 0.' });
     }
     const produto = await Produto.findByPk(req.params.id, {
@@ -170,7 +171,9 @@ const registrarEntrada = async (req, res) => {
     });
     if (!produto) return res.status(404).json({ error: 'Produto não encontrado.' });
 
-    await produto.update({ estoque_atual: produto.estoque_atual + parseInt(quantidade) });
+    const delta = tipo === 'saida' ? -qtd : qtd;
+    const novoSaldo = Math.max(0, produto.estoque_atual + delta);
+    await produto.update({ estoque_atual: novoSaldo });
     return res.json({ message: 'Estoque atualizado.', produto });
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno.' });

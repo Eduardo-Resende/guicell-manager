@@ -5,13 +5,23 @@
         <h1 class="page-title">Configurações de Usuários</h1>
         <p class="page-subtitle">Gerencie as credenciais e níveis de acesso (Perfis) dos colaboradores.</p>
       </div>
-      <button class="btn" @click="showAddModal = true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        <span>Novo Usuário</span>
-      </button>
+      <div class="flex items-center gap-3">
+        <button v-if="$pode('permissoes.configurar')" class="btn btn-secondary" @click="irParaPermissoes()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <circle cx="12" cy="11" r="3" />
+            <line x1="12" y1="14" x2="12" y2="17" />
+          </svg>
+          <span>Perfis de Acesso</span>
+        </button>
+        <button v-if="$pode('usuarios.gerenciar')" class="btn" @click="showAddModal = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Novo Usuário</span>
+        </button>
+      </div>
     </div>
 
     <!-- Restrictions Warning Badge (Academic Detail) -->
@@ -72,6 +82,13 @@
               </td>
               <td class="text-muted">{{ u.criado }}</td>
               <td class="text-right">
+                <button v-if="$pode('permissoes.configurar')" class="btn btn-secondary btn-xs mr-2" @click="abrirPermissoesUsuario(u)" title="Configurar permissões deste colaborador">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <circle cx="12" cy="11" r="3" />
+                  </svg>
+                  <span>Permissões</span>
+                </button>
                 <button class="btn btn-secondary btn-xs mr-2" @click="openEditModal(u)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -223,11 +240,19 @@
 
 <script>
 import { defineComponent, ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { usuariosService } from '../services/index.js';
 
 export default defineComponent({
   name: 'UsuariosView',
   setup() {
+    const router = useRouter();
+    const irParaPermissoes = () => {
+      router.push('/permissoes');
+    };
+    const abrirPermissoesUsuario = (user) => {
+      router.push(`/permissoes?usuario=${user.id_usuario}`);
+    };
     const showAddModal = ref(false);
     const showResetModal = ref(false);
     const showEditModal = ref(false);
@@ -397,6 +422,8 @@ export default defineComponent({
       openEditModal,
       closeEditModal,
       submitEditUser,
+      irParaPermissoes,
+      abrirPermissoesUsuario,
     };
   }
 });

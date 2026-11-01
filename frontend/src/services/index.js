@@ -1,10 +1,13 @@
 import api from './api';
+import { atualizarPermissoesLocais } from '../composables/usePermissoes';
 
 export const authService = {
   async login(login, senha) {
     const { data } = await api.post('/auth/login', { login, senha });
     localStorage.setItem('guicell_token', data.token);
     localStorage.setItem('guicell_usuario', JSON.stringify(data.usuario));
+    localStorage.setItem('guicell_user', JSON.stringify(data.usuario));
+    atualizarPermissoesLocais();
     return data;
   },
   solicitarRecuperacao: (login, canal) => api.post('/auth/recuperar-senha/solicitar', { login, canal }).then(r => r.data),
@@ -12,9 +15,11 @@ export const authService = {
   logout() {
     localStorage.removeItem('guicell_token');
     localStorage.removeItem('guicell_usuario');
+    localStorage.removeItem('guicell_user');
+    atualizarPermissoesLocais();
   },
   getUsuarioLogado() {
-    return JSON.parse(localStorage.getItem('guicell_usuario') || 'null');
+    return JSON.parse(localStorage.getItem('guicell_usuario') || localStorage.getItem('guicell_user') || 'null');
   },
   isAuthenticated() {
     return !!localStorage.getItem('guicell_token');
@@ -49,6 +54,8 @@ export const osService = {
   atualizarStatus: (id, status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado }).then(r => r.data),
   fechar: (id, dados) => api.post(`/ordens-servico/${id}/fechar`, dados).then(r => r.data),
   pagar: (id, forma_pagamento) => api.post(`/ordens-servico/${id}/pagar`, { forma_pagamento }).then(r => r.data),
+  enviarEmail: (payload) => api.post('/ordens-servico/enviar-email', payload).then(r => r.data),
+  enviarWhatsapp: (payload) => api.post('/ordens-servico/enviar-whatsapp', payload).then(r => r.data),
 };
 
 export const produtosService = {
@@ -58,7 +65,7 @@ export const produtosService = {
   criar: (dados) => api.post('/produtos', dados).then(r => r.data),
   atualizar: (id, dados) => api.put(`/produtos/${id}`, dados).then(r => r.data),
   remover: (id) => api.delete(`/produtos/${id}`),
-  registrarEntrada: (id, quantidade) => api.post(`/produtos/${id}/entrada`, { quantidade }).then(r => r.data),
+  registrarEntrada: (id, quantidade, tipo = 'entrada') => api.post(`/produtos/${id}/entrada`, { quantidade, tipo }).then(r => r.data),
 };
 
 export const vendasService = {
@@ -112,4 +119,12 @@ export const comprasService = {
   buscarPorId: (id) => api.get(`/compras/${id}`).then(r => r.data),
   criar: (dados) => api.post('/compras', dados).then(r => r.data),
   cancelar: (id, motivo) => api.post(`/compras/${id}/cancelar`, { motivo }).then(r => r.data),
+};
+
+export const permissoesService = {
+  obterMatriz: () => api.get('/permissoes/matriz').then(r => r.data),
+  salvarPerfil: (perfil, regras) => api.put(`/permissoes/perfil/${perfil}`, { regras }).then(r => r.data),
+  restaurarPerfil: (perfil) => api.post(`/permissoes/perfil/${perfil}/restaurar`).then(r => r.data),
+  salvarUsuario: (id, regras) => api.put(`/permissoes/usuario/${id}`, { regras }).then(r => r.data),
+  restaurarUsuario: (id) => api.delete(`/permissoes/usuario/${id}/restaurar`).then(r => r.data),
 };

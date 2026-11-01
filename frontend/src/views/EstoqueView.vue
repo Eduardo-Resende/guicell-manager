@@ -6,13 +6,13 @@
         <p class="page-subtitle">Controle de peças de reposição e acessórios com alerta de nível crítico.</p>
       </div>
       <div class="flex gap-2">
-        <button class="btn btn-secondary" @click="irParaCompras">
+        <button v-if="$pode('compras.criar')" class="btn btn-secondary" @click="irParaCompras">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
           <span>Lançar Entrada</span>
         </button>
-        <button class="btn" @click="showAddModal = true">
+        <button v-if="$pode('estoque.criar_editar')" class="btn" @click="showAddModal = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -25,18 +25,21 @@
     <!-- Tabs Menu -->
     <div class="tabs-container">
       <button 
+        v-if="$pode('estoque.ver') || $pode('estoque.criar_editar') || $pode('estoque.ajustar')"
         :class="['tab-btn', { active: activeTab === 'list' }]" 
         @click="activeTab = 'list'"
       >
         Produtos Cadastrados
       </button>
       <button 
+        v-if="$pode('estoque.ver') || $pode('estoque.criar_editar') || $pode('estoque.ajustar')"
         :class="['tab-btn', { active: activeTab === 'logs' }]" 
         @click="activeTab = 'logs'"
       >
         Histórico de Movimentações
       </button>
       <button 
+        v-if="$pode('estoque.categorias')"
         :class="['tab-btn', { active: activeTab === 'categories' }]" 
         @click="activeTab = 'categories'"
       >
@@ -131,7 +134,10 @@
                   </span>
                 </td>
                 <td class="text-right">
-                  <button class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="editProduct(prod)">
+                  <button v-if="$pode('estoque.ajustar')" class="btn btn-secondary btn-xs mr-2" title="Ajustar Saldo Manualmente" @click="openAjusteModal(prod)">
+                    <span>Ajustar Saldo</span>
+                  </button>
+                  <button v-if="$pode('estoque.criar_editar')" class="btn btn-secondary btn-xs btn-icon-only" title="Editar" @click="editProduct(prod)">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -181,7 +187,7 @@
     </div>
 
     <!-- Tab Content: Categories Management -->
-    <div v-else-if="activeTab === 'categories'" class="tab-content categories-management">
+    <div v-else-if="activeTab === 'categories' && $pode('estoque.categorias')" class="tab-content categories-management">
       <div class="categories-layout">
         
         <!-- Left Column: Tree List of Categories -->
@@ -452,8 +458,8 @@
 
             <div class="grid grid-cols-2 gap-3">
               <div class="form-group">
-                <label>Estoque Inicial *</label>
-                <input type="number" v-model="form.qtd" required min="0" class="input-control" />
+                <label>{{ editingId ? 'Saldo Atual' : 'Estoque Inicial *' }}</label>
+                <input type="number" v-model="form.qtd" required min="0" :disabled="!!editingId && !$pode('estoque.ajustar')" class="input-control" />
               </div>
               <div class="form-group">
                 <label>Estoque Mínimo <span class="text-xs text-muted font-normal">(0 ou em branco = sem aviso)</span></label>
@@ -479,6 +485,40 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal: Ajustar Saldo Manualmente -->
+    <div v-if="showAjusteModal && ajusteProd" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="m-0">Ajustar Saldo de Estoque</h3>
+            <p class="text-muted text-xs m-0">{{ ajusteProd.descricao }} (Saldo atual: {{ ajusteProd.qtd }} un)</p>
+          </div>
+          <button class="close-btn" @click="showAjusteModal = false">&times;</button>
+        </div>
+        <form @submit.prevent="submitAjusteEstoque">
+          <div class="modal-body">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group m-0">
+                <label>Tipo de Ajuste *</label>
+                <select v-model="ajusteForm.tipo" required class="input-control select-control">
+                  <option value="entrada">Entrada (+ Adicionar)</option>
+                  <option value="saida">Saída (- Subtrair)</option>
+                </select>
+              </div>
+              <div class="form-group m-0">
+                <label>Quantidade *</label>
+                <input type="number" v-model="ajusteForm.quantidade" required min="1" class="input-control" />
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showAjusteModal = false">Cancelar</button>
+            <button type="submit" class="btn">Confirmar Ajuste</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -486,12 +526,13 @@
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { produtosService, categoriasService } from '../services/index.js';
+import { pode } from '../composables/usePermissoes';
 
 export default defineComponent({
   name: 'EstoqueView',
   setup() {
     const router = useRouter();
-    const activeTab = ref('list');
+    const activeTab = ref((pode('estoque.ver') || pode('estoque.criar_editar') || pode('estoque.ajustar')) ? 'list' : 'categories');
     const searchQuery = ref('');
     const selectedCategoryFilter = ref('');
     const showAddModal = ref(false);
@@ -506,6 +547,32 @@ export default defineComponent({
     const subCategoryForm = ref({ nome: '', id_pai: '', tipo_uso: '' });
     const editingCategoryObj = ref(null);
     const showEditCategoryModal = ref(false);
+    const showAjusteModal = ref(false);
+    const ajusteProd = ref(null);
+    const ajusteForm = ref({ tipo: 'entrada', quantidade: 1 });
+
+    const openAjusteModal = (prod) => {
+      ajusteProd.value = prod;
+      ajusteForm.value = { tipo: 'entrada', quantidade: 1 };
+      showAjusteModal.value = true;
+    };
+
+    const submitAjusteEstoque = async () => {
+      if (!ajusteProd.value || !ajusteForm.value.quantidade) return;
+      try {
+        await produtosService.registrarEntrada(
+          ajusteProd.value.id_produto,
+          parseInt(ajusteForm.value.quantidade),
+          ajusteForm.value.tipo
+        );
+        showAjusteModal.value = false;
+        ajusteProd.value = null;
+        await fetchProducts();
+        await fetchMovementLogs();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao ajustar estoque.');
+      }
+    };
 
     const form = ref({
       codigo_barras: '',
@@ -730,7 +797,12 @@ export default defineComponent({
       openEditCategory,
       submitEditCategory,
       deleteCategory,
-      getTipoUsoBadge
+      getTipoUsoBadge,
+      showAjusteModal,
+      ajusteProd,
+      ajusteForm,
+      openAjusteModal,
+      submitAjusteEstoque
     };
   }
 });

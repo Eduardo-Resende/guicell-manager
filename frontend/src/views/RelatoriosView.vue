@@ -23,10 +23,10 @@
         <div class="form-group m-0">
           <label>Tipo de Relatório</label>
           <select v-model="reportType" class="input-control select-control">
-            <option value="os">Ordens de Serviço</option>
-            <option value="vendas">Vendas (PDV)</option>
-            <option value="caixa">Fluxo de Caixa</option>
-            <option value="estoque">Estoque</option>
+            <option v-if="$pode('relatorios.os')" value="os">Ordens de Serviço</option>
+            <option v-if="$pode('relatorios.vendas')" value="vendas">Vendas (PDV)</option>
+            <option v-if="$pode('relatorios.caixa')" value="caixa">Fluxo de Caixa</option>
+            <option v-if="$pode('relatorios.estoque')" value="estoque">Estoque</option>
           </select>
         </div>
 
@@ -345,6 +345,7 @@
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
 import { relatoriosService } from '../services/index.js';
 import { formatarData, formatarDataHora } from '../utils/formatDate.js';
+import { pode } from '../composables/usePermissoes';
 
 async function loadJsPDF() {
   if (window.jspdf?.jsPDF) return window.jspdf.jsPDF;
@@ -371,7 +372,14 @@ async function loadHtml2Canvas() {
 export default defineComponent({
   name: 'RelatoriosView',
   setup() {
-    const reportType = ref('os');
+    const obterPrimeiroRelatorioPermitido = () => {
+      if (pode('relatorios.os')) return 'os';
+      if (pode('relatorios.vendas')) return 'vendas';
+      if (pode('relatorios.caixa')) return 'caixa';
+      if (pode('relatorios.estoque')) return 'estoque';
+      return 'os';
+    };
+    const reportType = ref(obterPrimeiroRelatorioPermitido());
     const showExportModal = ref(false);
     const isExporting = ref(false);
 

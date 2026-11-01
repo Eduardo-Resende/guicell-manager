@@ -9,14 +9,14 @@
       </div>
       <div class="flex gap-2">
         <template v-if="caixaAberto">
-          <button class="btn btn-secondary" @click="showFecharModal = true">
+          <button v-if="$pode('caixa.abrir_fechar')" class="btn btn-secondary" @click="showFecharModal = true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <span>Fechar Caixa</span>
           </button>
-          <button class="btn" @click="showAddModal = true">
+          <button v-if="$pode('caixa.movimentar')" class="btn" @click="showAddModal = true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -25,7 +25,7 @@
           </button>
         </template>
         <template v-else>
-          <button class="btn" @click="showAbrirModal = true">
+          <button v-if="$pode('caixa.abrir_fechar')" class="btn" @click="showAbrirModal = true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 1 1 9.9-1" />
@@ -41,13 +41,31 @@
       <div class="caixa-fechado-content">
         <div class="caixa-fechado-icon">🔒</div>
         <h3>Caixa Fechado</h3>
-        <p class="text-muted">Informe o fundo de troco para abrir o caixa de hoje.</p>
-        <button class="btn mt-4" @click="showAbrirModal = true">Abrir Caixa do Dia</button>
+        <p v-if="$pode('caixa.abrir_fechar')" class="text-muted">Informe o fundo de troco para abrir o caixa de hoje.</p>
+        <p v-else class="text-muted">O turno de caixa ainda não foi aberto hoje.</p>
+        <button v-if="$pode('caixa.abrir_fechar')" class="btn mt-4" @click="showAbrirModal = true">Abrir Caixa do Dia</button>
       </div>
     </div>
 
-    <!-- ── Cards de Resumo (visível apenas quando aberto) ───────────────────── -->
-    <div v-if="caixaAberto" class="balances-grid">
+    <!-- ── Estado: Caixa Aberto mas usuário não tem caixa.ver ───────────────── -->
+    <div v-if="caixaAberto && !$pode('caixa.ver') && !loading" class="card caixa-fechado-card">
+      <div class="caixa-fechado-content">
+        <div class="caixa-fechado-icon">🔓</div>
+        <h3>Turno de Caixa Aberto</h3>
+        <p class="text-muted">O caixa do dia está aberto e em operação.</p>
+        <div class="flex gap-2 mt-4">
+          <button v-if="$pode('caixa.movimentar')" class="btn" @click="showAddModal = true">
+            Lançar Movimentação
+          </button>
+          <button v-if="$pode('caixa.abrir_fechar')" class="btn btn-secondary" @click="showFecharModal = true">
+            Fechar Caixa do Dia
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Cards de Resumo (visível quando aberto e possui caixa.ver) ──────── -->
+    <div v-if="caixaAberto && $pode('caixa.ver')" class="balances-grid">
       <div class="card balance-card">
         <span class="balance-label">Abertura de Caixa</span>
         <span class="balance-value text-white">R$ {{ fmt(resumo.abertura) }}</span>
@@ -72,8 +90,8 @@
       </div>
     </div>
 
-    <!-- ── Tabela de Movimentações ───────────────────────────────────────────── -->
-    <div v-if="caixaAberto" class="card logs-card">
+    <!-- ── Tabela de Movimentações (visível quando aberto e possui caixa.ver) ── -->
+    <div v-if="caixaAberto && $pode('caixa.ver')" class="card logs-card">
       <h3 class="mb-4">Fluxo de Caixa do Dia</h3>
       <div class="table-responsive">
         <table>
@@ -207,8 +225,8 @@
           <button class="close-btn" @click="showFecharModal = false">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="text-muted mb-4">Resumo do dia — {{ dataHoje }}</p>
-          <div class="fechamento-resumo">
+          <p class="text-muted mb-4">Fechamento do dia — {{ dataHoje }}</p>
+          <div v-if="$pode('caixa.ver')" class="fechamento-resumo">
             <div class="resumo-row">
               <span class="text-muted">Abertura de Caixa</span>
               <span>R$ {{ fmt(resumo.abertura) }}</span>
@@ -232,6 +250,9 @@
               <span>{{ sortedLogs.length }}</span>
             </div>
           </div>
+          <p v-else class="text-white">
+            Deseja confirmar o encerramento do turno de caixa de hoje?
+          </p>
           <p class="text-muted mt-4" style="font-size:0.85rem;">
             ⚠️ O fechamento é apenas um registro do resumo. O caixa poderá ser aberto novamente amanhã.
           </p>
@@ -249,6 +270,7 @@
 <script>
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { caixaService } from '../services/index.js';
+import { pode } from '../composables/usePermissoes';
 
 export default defineComponent({
   name: 'CaixaView',
@@ -277,23 +299,26 @@ export default defineComponent({
       try {
         const d = new Date();
         const hojeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const [resumoData, listData] = await Promise.all([
-          caixaService.resumoDia(),
-          caixaService.listar({ data_inicio: hojeStr, data_fim: hojeStr }),
-        ]);
+        const resumoData = await caixaService.resumoDia();
         resumo.value = resumoData;
         caixaAberto.value = resumoData.caixaAberto;
-        logs.value = listData
-          .filter(log => log.categoria !== 'Abertura de Caixa' && log.categoria !== 'Fechamento de Caixa')
-          .map(log => ({
-            id: log.id_caixa,
-            hora: new Date(log.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            descricao: log.descricao,
-            categoria: log.categoria || 'Geral',
-            tipo: log.tipo,
-            valor: parseFloat(log.valor),
-            operador: log.usuario?.nome || 'Operador',
-          }));
+
+        if (pode('caixa.ver')) {
+          const listData = await caixaService.listar({ data_inicio: hojeStr, data_fim: hojeStr });
+          logs.value = listData
+            .filter(log => log.categoria !== 'Abertura de Caixa' && log.categoria !== 'Fechamento de Caixa')
+            .map(log => ({
+              id: log.id_caixa,
+              hora: new Date(log.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              descricao: log.descricao,
+              categoria: log.categoria || 'Geral',
+              tipo: log.tipo,
+              valor: parseFloat(log.valor),
+              operador: log.usuario?.nome || 'Operador',
+            }));
+        } else {
+          logs.value = [];
+        }
       } catch (err) {
         console.error('Erro ao carregar dados do caixa:', err);
       } finally {
@@ -352,7 +377,11 @@ export default defineComponent({
       try {
         await caixaService.fechar();
         showFecharModal.value = false;
-        alert(`✅ Caixa fechado com sucesso!\n\nResumo do dia:\n• Abertura: R$ ${fmt(resumo.value.abertura)}\n• Entradas: R$ ${fmt(resumo.value.entradas)}\n• Saídas: R$ ${fmt(resumo.value.saidas)}\n• Saldo Final: R$ ${fmt(resumo.value.saldo)}`);
+        if (pode('caixa.ver')) {
+          alert(`✅ Caixa fechado com sucesso!\n\nResumo do dia:\n• Abertura: R$ ${fmt(resumo.value.abertura)}\n• Entradas: R$ ${fmt(resumo.value.entradas)}\n• Saídas: R$ ${fmt(resumo.value.saidas)}\n• Saldo Final: R$ ${fmt(resumo.value.saldo)}`);
+        } else {
+          alert('✅ Caixa fechado com sucesso!');
+        }
         await fetchCaixa();
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao fechar o caixa.');
