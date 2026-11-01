@@ -195,10 +195,308 @@
       </div>
     </div>
   </div>
+
+    <!-- Modal: Recuperação de Senha -->
+    <div v-if="showForgotModal" class="modal-overlay" @click.self="closeForgotModal">
+      <div class="modal-content forgot-modal-content">
+        <div class="modal-header">
+          <div>
+            <h3 class="m-0 text-white font-bold text-lg">Recuperar Senha</h3>
+            <p class="text-muted text-xs m-0">
+              <span v-if="forgotStep === 1">Passo 1 de 3: Escolha onde receber seu código</span>
+              <span v-else-if="forgotStep === 2">Passo 2 de 3: Digite o código de 4 dígitos</span>
+              <span v-else-if="forgotStep === 3">Passo 3 de 3: Crie sua nova senha</span>
+              <span v-else-if="forgotStep === 4">Sucesso!</span>
+            </p>
+          </div>
+          <button class="close-btn" @click="closeForgotModal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Step indicator dots -->
+          <div class="step-progress-bar" v-if="forgotStep <= 3">
+            <div class="step-dot" :class="{ active: forgotStep >= 1 }">1</div>
+            <div class="step-line" :class="{ active: forgotStep >= 2 }"></div>
+            <div class="step-dot" :class="{ active: forgotStep >= 2 }">2</div>
+            <div class="step-line" :class="{ active: forgotStep >= 3 }"></div>
+            <div class="step-dot" :class="{ active: forgotStep >= 3 }">3</div>
+          </div>
+
+          <!-- Alert error message -->
+          <div v-if="forgotError" class="alert-error forgot-alert">
+            <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ forgotError }}</span>
+          </div>
+
+          <!-- Alert success info (resend or step feedback) -->
+          <div v-if="forgotInfo" class="alert-info-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>{{ forgotInfo }}</span>
+          </div>
+
+          <!-- STEP 1: Selecionar Login e Canal -->
+          <div v-if="forgotStep === 1">
+            <div class="form-group mb-3">
+              <label class="text-sm font-medium text-white mb-1 block">Usuário / Login *</label>
+              <div class="input-wrapper">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <input 
+                  type="text" 
+                  v-model="forgotLogin" 
+                  placeholder="Informe seu login de acesso" 
+                  required 
+                  class="input-control login-input"
+                />
+              </div>
+            </div>
+
+            <div class="channel-selector-group">
+              <label class="channel-label">Selecione onde deseja receber o código de 4 dígitos:</label>
+              <div class="channel-cards">
+                <!-- WhatsApp -->
+                <div 
+                  class="channel-card" 
+                  :class="{ selected: forgotChannel === 'whatsapp' }"
+                  @click="forgotChannel = 'whatsapp'"
+                >
+                  <div class="channel-icon-circle whatsapp">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.04 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.04 7.39C8.88 7.39 8.63 7.45 8.41 7.69C8.2 7.92 7.59 8.49 7.59 9.64C7.59 10.8 8.43 11.91 8.55 12.07C8.67 12.23 10.2 14.58 12.54 15.59C13.09 15.83 13.53 15.98 13.86 16.08C14.42 16.26 14.93 16.23 15.33 16.17C15.78 16.1 16.71 15.6 16.91 15.05C17.1 14.5 17.1 14.02 17.04 13.93C16.98 13.83 16.83 13.77 16.6 13.66C16.38 13.55 15.26 13 15.06 12.92C14.85 12.85 14.7 12.81 14.55 13.04C14.4 13.27 13.97 13.77 13.84 13.93C13.72 14.08 13.59 14.1 13.37 13.98C13.14 13.87 12.43 13.64 11.58 12.88C10.92 12.29 10.47 11.56 10.35 11.35C10.22 11.13 10.33 11.02 10.45 10.9C10.55 10.8 10.67 10.64 10.78 10.51C10.9 10.38 10.93 10.28 11.01 10.13C11.08 9.97 11.04 9.84 10.99 9.73C10.93 9.62 10.49 8.53 10.3 8.09C10.12 7.65 9.94 7.72 9.79 7.71C9.66 7.71 9.5 7.7 9.35 7.7C9.2 7.7 8.95 7.76 9.04 7.39Z" />
+                    </svg>
+                  </div>
+                  <div class="channel-info">
+                    <span class="channel-title">WhatsApp</span>
+                    <span class="channel-sub">Mensagem instantânea no app</span>
+                  </div>
+                  <div class="channel-radio">
+                    <div class="channel-radio-dot" v-if="forgotChannel === 'whatsapp'"></div>
+                  </div>
+                </div>
+
+                <!-- E-mail -->
+                <div 
+                  class="channel-card" 
+                  :class="{ selected: forgotChannel === 'email' }"
+                  @click="forgotChannel = 'email'"
+                >
+                  <div class="channel-icon-circle email">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                      <polyline points="22,6 12,13 2,6" />
+                    </svg>
+                  </div>
+                  <div class="channel-info">
+                    <span class="channel-title">E-mail</span>
+                    <span class="channel-sub">Código na sua caixa de entrada</span>
+                  </div>
+                  <div class="channel-radio">
+                    <div class="channel-radio-dot" v-if="forgotChannel === 'email'"></div>
+                  </div>
+                </div>
+
+                <!-- SMS -->
+                <div 
+                  class="channel-card" 
+                  :class="{ selected: forgotChannel === 'sms' }"
+                  @click="forgotChannel = 'sms'"
+                >
+                  <div class="channel-icon-circle sms">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </div>
+                  <div class="channel-info">
+                    <span class="channel-title">SMS</span>
+                    <span class="channel-sub">Mensagem de texto no celular</span>
+                  </div>
+                  <div class="channel-radio">
+                    <div class="channel-radio-dot" v-if="forgotChannel === 'sms'"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer forgot-footer">
+              <button type="button" class="btn btn-secondary" @click="closeForgotModal">Cancelar</button>
+              <button type="button" class="btn" :disabled="isLoadingForgot || !forgotLogin" @click="submitSolicitarCodigo(false)">
+                <span>{{ isLoadingForgot ? 'Enviando...' : 'Enviar Código' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 2: Inserir Código de 4 Dígitos -->
+          <div v-if="forgotStep === 2" class="text-center">
+            <div class="code-instruction">
+              <p class="text-white text-sm m-0">
+                Enviamos um código de 4 dígitos via <strong>{{ canalLabel(forgotChannel) }}</strong> para:
+              </p>
+              <p class="text-highlight font-semibold text-base mt-1 mb-3">{{ forgotDestino }}</p>
+              <p class="text-muted text-xs">Digite o código abaixo para continuar:</p>
+            </div>
+
+            <!-- 4 Digits Inputs -->
+            <div class="code-boxes-wrapper">
+              <input 
+                v-for="(digit, idx) in codeDigits" 
+                :key="idx"
+                :ref="el => setBoxRef(el, idx)"
+                type="text" 
+                inputmode="numeric" 
+                maxlength="1" 
+                class="code-digit-box" 
+                v-model="codeDigits[idx]" 
+                @input="handleDigitInput(idx, $event)"
+                @keydown="handleDigitKeydown(idx, $event)"
+                @paste="handleDigitPaste($event)"
+              />
+            </div>
+
+            <div class="resend-section mt-4">
+              <button 
+                type="button" 
+                class="btn-text" 
+                :disabled="resendCountdown > 0 || isLoadingForgot" 
+                @click="submitSolicitarCodigo(true)"
+              >
+                <span v-if="resendCountdown > 0">Reenviar código em {{ resendCountdown }}s</span>
+                <span v-else>Não recebeu? Reenviar código</span>
+              </button>
+              <button type="button" class="btn-text text-muted block mt-1" @click="forgotStep = 1">
+                Trocar método de envio ou usuário
+              </button>
+            </div>
+
+            <div class="modal-footer forgot-footer mt-4">
+              <button type="button" class="btn btn-secondary" @click="forgotStep = 1">Voltar</button>
+              <button 
+                type="button" 
+                class="btn" 
+                :disabled="!isCodeComplete" 
+                @click="avancarParaNovaSenha"
+              >
+                <span>Avançar</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 3: Definir Nova Senha -->
+          <div v-if="forgotStep === 3">
+            <div class="form-group mb-3">
+              <label class="text-sm font-medium text-white mb-1 block">Nova Senha *</label>
+              <div class="input-wrapper has-suffix">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <input 
+                  :type="showNewPassword ? 'text' : 'password'" 
+                  v-model="forgotNewPassword" 
+                  placeholder="Mínimo 6 caracteres" 
+                  required 
+                  class="input-control login-input"
+                />
+                <svg 
+                  class="eye-icon" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  stroke-width="2"
+                  @click="showNewPassword = !showNewPassword"
+                >
+                  <path v-if="showNewPassword" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line v-if="showNewPassword" x1="1" y1="1" x2="23" y2="23" />
+                  <path v-if="!showNewPassword" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle v-if="!showNewPassword" cx="12" cy="12" r="3" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="form-group mb-3">
+              <label class="text-sm font-medium text-white mb-1 block">Confirmar Nova Senha *</label>
+              <div class="input-wrapper has-suffix">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <input 
+                  :type="showConfirmPassword ? 'text' : 'password'" 
+                  v-model="forgotConfirmPassword" 
+                  placeholder="Repita a nova senha" 
+                  required 
+                  class="input-control login-input"
+                />
+                <svg 
+                  class="eye-icon" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  stroke-width="2"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                >
+                  <path v-if="showConfirmPassword" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line v-if="showConfirmPassword" x1="1" y1="1" x2="23" y2="23" />
+                  <path v-if="!showConfirmPassword" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle v-if="!showConfirmPassword" cx="12" cy="12" r="3" />
+                </svg>
+              </div>
+            </div>
+
+            <p class="text-xs text-muted mt-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="inline mr-1" style="vertical-align: -2px;">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              Por segurança, a nova senha <strong>não pode ser a mesma já cadastrada</strong> no sistema.
+            </p>
+
+            <div class="modal-footer forgot-footer">
+              <button type="button" class="btn btn-secondary" @click="forgotStep = 2">Voltar</button>
+              <button 
+                type="button" 
+                class="btn" 
+                :disabled="isLoadingForgot || !forgotNewPassword || !forgotConfirmPassword" 
+                @click="submitRedefinirSenha"
+              >
+                <span>{{ isLoadingForgot ? 'Salvando...' : 'Salvar Nova Senha' }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP 4: Concluído com Sucesso -->
+          <div v-if="forgotStep === 4" class="success-step text-center">
+            <div class="success-icon-circle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="36" height="36">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <h3 class="text-white text-xl font-bold mt-3 mb-2">Senha alterada com sucesso!</h3>
+            <p class="text-muted text-sm mb-4">
+              Sua nova senha já está ativa. Agora você pode entrar no Guicell Manager usando as novas credenciais.
+            </p>
+            <button type="button" class="btn btn-block" @click="concluirRecuperacao">
+              <span>Fazer Login</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, computed, nextTick, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import loginHero from '../assets/login-hero.png';
 import { authService } from '../services/index.js';
@@ -214,6 +512,54 @@ export default defineComponent({
     const isLoading = ref(false);
     const errorMsg = ref('');
 
+    // Password Recovery State
+    const showForgotModal = ref(false);
+    const forgotStep = ref(1); // 1: Canal, 2: Código 4 dígitos, 3: Nova Senha, 4: Sucesso
+    const forgotLogin = ref('');
+    const forgotChannel = ref('whatsapp');
+    const forgotDestino = ref('');
+    const forgotError = ref('');
+    const forgotInfo = ref('');
+    const isLoadingForgot = ref(false);
+
+    const codeDigits = ref(['', '', '', '']);
+    const boxRefs = [null, null, null, null];
+    const setBoxRef = (el, idx) => {
+      boxRefs[idx] = el;
+    };
+
+    const resendCountdown = ref(0);
+    let resendTimer = null;
+
+    const forgotNewPassword = ref('');
+    const forgotConfirmPassword = ref('');
+    const showNewPassword = ref(false);
+    const showConfirmPassword = ref(false);
+
+    const isCodeComplete = computed(() => {
+      return codeDigits.value.every(d => String(d).trim().length === 1);
+    });
+
+    const canalLabel = (channel) => {
+      if (channel === 'whatsapp') return 'WhatsApp';
+      if (channel === 'email') return 'E-mail';
+      if (channel === 'sms') return 'SMS';
+      return channel;
+    };
+
+    const startResendTimer = () => {
+      if (resendTimer) clearInterval(resendTimer);
+      resendCountdown.value = 60;
+      resendTimer = setInterval(() => {
+        if (resendCountdown.value > 0) {
+          resendCountdown.value--;
+        } else {
+          clearInterval(resendTimer);
+          resendTimer = null;
+        }
+      }, 1000);
+    };
+
     const handleLogin = async () => {
       if (!login.value || !password.value) {
         errorMsg.value = 'Preencha o login e a senha.';
@@ -226,15 +572,138 @@ export default defineComponent({
         router.push('/dashboard');
       } catch (err) {
         errorMsg.value = err.response?.data?.error || 'Erro ao conectar com o servidor.';
-        password.value = ''; // Limpa apenas a senha
+        password.value = '';
       } finally {
         isLoading.value = false;
       }
     };
 
     const handleForgotPassword = () => {
-      alert('Entre em contato com o administrador do sistema para redefinir sua senha.');
+      showForgotModal.value = true;
+      forgotStep.value = 1;
+      forgotLogin.value = login.value || '';
+      forgotChannel.value = 'whatsapp';
+      forgotDestino.value = '';
+      forgotError.value = '';
+      forgotInfo.value = '';
+      codeDigits.value = ['', '', '', ''];
+      forgotNewPassword.value = '';
+      forgotConfirmPassword.value = '';
     };
+
+    const closeForgotModal = () => {
+      showForgotModal.value = false;
+      if (resendTimer) {
+        clearInterval(resendTimer);
+        resendTimer = null;
+      }
+      forgotError.value = '';
+      forgotInfo.value = '';
+    };
+
+    const submitSolicitarCodigo = async (isResend = false) => {
+      if (!forgotLogin.value) {
+        forgotError.value = 'Informe seu usuário / login.';
+        return;
+      }
+      forgotError.value = '';
+      forgotInfo.value = '';
+      isLoadingForgot.value = true;
+      try {
+        const res = await authService.solicitarRecuperacao(forgotLogin.value, forgotChannel.value);
+        forgotDestino.value = res.destino || '';
+        if (isResend) {
+          forgotInfo.value = res.mensagem || 'Código reenviado com sucesso!';
+        } else {
+          forgotStep.value = 2;
+          nextTick(() => {
+            if (boxRefs[0]) boxRefs[0].focus();
+          });
+        }
+        startResendTimer();
+      } catch (err) {
+        forgotError.value = err.response?.data?.error || 'Erro ao solicitar código de recuperação.';
+      } finally {
+        isLoadingForgot.value = false;
+      }
+    };
+
+    const handleDigitInput = (idx, event) => {
+      const char = event.target.value.replace(/\D/g, '');
+      codeDigits.value[idx] = char ? char.slice(-1) : '';
+      if (codeDigits.value[idx] && idx < 3 && boxRefs[idx + 1]) {
+        boxRefs[idx + 1].focus();
+      }
+    };
+
+    const handleDigitKeydown = (idx, event) => {
+      if (event.key === 'Backspace') {
+        if (!codeDigits.value[idx] && idx > 0 && boxRefs[idx - 1]) {
+          boxRefs[idx - 1].focus();
+        }
+      } else if (event.key === 'ArrowLeft' && idx > 0 && boxRefs[idx - 1]) {
+        boxRefs[idx - 1].focus();
+      } else if (event.key === 'ArrowRight' && idx < 3 && boxRefs[idx + 1]) {
+        boxRefs[idx + 1].focus();
+      }
+    };
+
+    const handleDigitPaste = (event) => {
+      event.preventDefault();
+      const text = (event.clipboardData || window.clipboardData).getData('text') || '';
+      const clean = text.replace(/\D/g, '').slice(0, 4);
+      for (let i = 0; i < 4; i++) {
+        codeDigits.value[i] = clean[i] || '';
+      }
+      const focusIndex = Math.min(clean.length, 3);
+      if (boxRefs[focusIndex]) {
+        boxRefs[focusIndex].focus();
+      }
+    };
+
+    const avancarParaNovaSenha = () => {
+      if (!isCodeComplete.value) {
+        forgotError.value = 'Digite todos os 4 dígitos do código.';
+        return;
+      }
+      forgotError.value = '';
+      forgotStep.value = 3;
+    };
+
+    const submitRedefinirSenha = async () => {
+      forgotError.value = '';
+      if (!forgotNewPassword.value || forgotNewPassword.value.length < 6) {
+        forgotError.value = 'A senha deve conter no mínimo 6 caracteres.';
+        return;
+      }
+      if (forgotNewPassword.value !== forgotConfirmPassword.value) {
+        forgotError.value = 'As senhas digitadas não coincidem.';
+        return;
+      }
+      isLoadingForgot.value = true;
+      try {
+        const code = codeDigits.value.join('');
+        await authService.redefinirSenha(forgotLogin.value, code, forgotNewPassword.value);
+        forgotStep.value = 4;
+      } catch (err) {
+        forgotError.value = err.response?.data?.error || 'Erro ao redefinir a senha.';
+      } finally {
+        isLoadingForgot.value = false;
+      }
+    };
+
+    const concluirRecuperacao = () => {
+      login.value = forgotLogin.value;
+      password.value = '';
+      closeForgotModal();
+    };
+
+    onUnmounted(() => {
+      if (resendTimer) {
+        clearInterval(resendTimer);
+        resendTimer = null;
+      }
+    });
 
     return {
       login,
@@ -246,6 +715,31 @@ export default defineComponent({
       errorMsg,
       handleLogin,
       handleForgotPassword,
+      showForgotModal,
+      forgotStep,
+      forgotLogin,
+      forgotChannel,
+      forgotDestino,
+      forgotError,
+      forgotInfo,
+      isLoadingForgot,
+      codeDigits,
+      setBoxRef,
+      resendCountdown,
+      forgotNewPassword,
+      forgotConfirmPassword,
+      showNewPassword,
+      showConfirmPassword,
+      isCodeComplete,
+      canalLabel,
+      closeForgotModal,
+      submitSolicitarCodigo,
+      handleDigitInput,
+      handleDigitKeydown,
+      handleDigitPaste,
+      avancarParaNovaSenha,
+      submitRedefinirSenha,
+      concluirRecuperacao,
     };
   }
 });
@@ -729,4 +1223,246 @@ export default defineComponent({
     margin: 0 auto;
   }
 }
+
+/* Password Recovery Modal */
+.forgot-modal-content {
+  max-width: 480px;
+  background-color: #121824;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.step-progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  gap: 8px;
+}
+
+.step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.step-dot.active {
+  background: var(--primary);
+  color: #0b0f19;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.step-line {
+  width: 40px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.step-line.active {
+  background: var(--primary);
+}
+
+.channel-selector-group {
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.channel-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.channel-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.channel-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.channel-card:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.03);
+}
+
+.channel-card.selected {
+  border-color: var(--primary);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.channel-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.channel-icon-circle.whatsapp {
+  background: rgba(37, 211, 102, 0.15);
+  color: #25d366;
+}
+
+.channel-icon-circle.email {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.channel-icon-circle.sms {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.channel-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.channel-title {
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.channel-sub {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.channel-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channel-card.selected .channel-radio {
+  border-color: var(--primary);
+}
+
+.channel-radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.forgot-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
+  padding-bottom: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.forgot-alert {
+  margin-bottom: 16px;
+}
+
+.alert-info-box {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-highlight {
+  color: var(--primary);
+}
+
+/* 4-digit code boxes */
+.code-boxes-wrapper {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.code-digit-box {
+  width: 56px;
+  height: 64px;
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.code-digit-box:focus {
+  border-color: var(--primary);
+  background: rgba(34, 197, 94, 0.05);
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px;
+  transition: opacity 0.2s;
+}
+
+.btn-text:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.success-step {
+  padding: 20px 0;
+}
+
+.success-icon-circle {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
 </style>

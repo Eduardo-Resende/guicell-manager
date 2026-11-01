@@ -32,6 +32,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('Atendente', 'Técnico', 'Gerente'),
       allowNull: false,
     },
+    email: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    telefone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    recuperacao_codigo: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    recuperacao_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     ativo: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,

@@ -5,7 +5,7 @@ const { Op } = require('sequelize');
 const listar = async (req, res) => {
   try {
     const usuarios = await Usuario.findAll({
-      attributes: { exclude: ['senha_hash'] },
+      attributes: { exclude: ['senha_hash', 'recuperacao_codigo', 'recuperacao_expira'] },
       order: [['nome', 'ASC']],
     });
     return res.json(usuarios);
@@ -16,13 +16,20 @@ const listar = async (req, res) => {
 
 const criar = async (req, res) => {
   try {
-    const { nome, login, senha, perfil } = req.body;
+    const { nome, login, senha, perfil, email, telefone } = req.body;
     if (!nome || !login || !senha || !perfil) {
       return res.status(400).json({ error: 'Nome, login, senha e perfil são obrigatórios.' });
     }
     const senha_hash = await bcrypt.hash(senha, 10);
-    const usuario = await Usuario.create({ nome, login, senha_hash, perfil });
-    const { senha_hash: _, ...usuarioSemSenha } = usuario.toJSON();
+    const usuario = await Usuario.create({
+      nome: nome.trim(),
+      login: login.trim(),
+      senha_hash,
+      perfil,
+      email: email && email.trim() ? email.trim().toLowerCase() : null,
+      telefone: telefone ? telefone.replace(/\D/g, '') : null,
+    });
+    const { senha_hash: _, recuperacao_codigo: __, recuperacao_expira: ___, ...usuarioSemSenha } = usuario.toJSON();
     return res.status(201).json(usuarioSemSenha);
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -38,16 +45,18 @@ const atualizar = async (req, res) => {
     if (!usuario) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
     const campos = { 
-      nome: req.body.nome, 
-      login: req.body.login, 
-      perfil: req.body.perfil, 
-      ativo: req.body.ativo 
+      nome: req.body.nome ? req.body.nome.trim() : usuario.nome, 
+      login: req.body.login ? req.body.login.trim() : usuario.login, 
+      perfil: req.body.perfil || usuario.perfil, 
+      email: req.body.email !== undefined ? (req.body.email && req.body.email.trim() ? req.body.email.trim().toLowerCase() : null) : usuario.email,
+      telefone: req.body.telefone !== undefined ? (req.body.telefone ? req.body.telefone.replace(/\D/g, '') : null) : usuario.telefone,
+      ativo: req.body.ativo !== undefined ? req.body.ativo : usuario.ativo,
     };
     if (req.body.senha) {
       campos.senha_hash = await bcrypt.hash(req.body.senha, 10);
     }
     await usuario.update(campos);
-    const { senha_hash: _, ...usuarioSemSenha } = usuario.toJSON();
+    const { senha_hash: _, recuperacao_codigo: __, recuperacao_expira: ___, ...usuarioSemSenha } = usuario.toJSON();
     return res.json(usuarioSemSenha);
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {

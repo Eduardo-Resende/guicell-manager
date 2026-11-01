@@ -7,6 +7,8 @@ export const authService = {
     localStorage.setItem('guicell_usuario', JSON.stringify(data.usuario));
     return data;
   },
+  solicitarRecuperacao: (login, canal) => api.post('/auth/recuperar-senha/solicitar', { login, canal }).then(r => r.data),
+  redefinirSenha: (login, codigo, novaSenha) => api.post('/auth/recuperar-senha/redefinir', { login, codigo, novaSenha }).then(r => r.data),
   logout() {
     localStorage.removeItem('guicell_token');
     localStorage.removeItem('guicell_usuario');

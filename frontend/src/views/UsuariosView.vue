@@ -35,6 +35,7 @@
             <tr>
               <th>Nome Completo</th>
               <th>Login/Usuário</th>
+              <th>Contato (Recuperação)</th>
               <th>Perfil de Acesso</th>
               <th>Status</th>
               <th>Data de Cadastro</th>
@@ -50,6 +51,11 @@
                 </div>
               </td>
               <td>{{ u.login }}</td>
+              <td>
+                <div v-if="u.telefone" class="text-xs text-white">{{ u.telefone }}</div>
+                <div v-if="u.email" class="text-xs text-muted">{{ u.email }}</div>
+                <span v-if="!u.telefone && !u.email" class="text-xs text-muted">Não informado</span>
+              </td>
               <td>
                 <span :class="['badge', getProfileBadge(u.perfil)]">{{ u.perfil }}</span>
               </td>
@@ -116,6 +122,17 @@
               </div>
             </div>
 
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label>E-mail (Recuperação de Senha)</label>
+                <input type="email" v-model="form.email" class="input-control" placeholder="colaborador@email.com" />
+              </div>
+              <div class="form-group">
+                <label>Telefone / WhatsApp</label>
+                <input type="text" v-model="form.telefone" @input="formatarTelefone(form)" class="input-control" placeholder="(00) 00000-0000" maxlength="15" />
+              </div>
+            </div>
+
             <div class="form-group m-0">
               <label>Senha Provisória *</label>
               <input type="password" v-model="form.senha" required class="input-control" placeholder="Mínimo 6 caracteres" />
@@ -169,17 +186,28 @@
             </div>
 
             <div class="grid grid-cols-2 gap-3">
-              <div class="form-group m-0">
+              <div class="form-group">
                 <label>Login de Acesso *</label>
                 <input type="text" v-model="editForm.login" required class="input-control" placeholder="usuario.acesso" />
               </div>
-              <div class="form-group m-0">
+              <div class="form-group">
                 <label>Perfil de Acesso *</label>
                 <select v-model="editForm.perfil" required class="input-control select-control">
                   <option value="Atendente">Atendente</option>
                   <option value="Técnico">Técnico</option>
                   <option value="Gerente">Gerente</option>
                 </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group m-0">
+                <label>E-mail (Recuperação de Senha)</label>
+                <input type="email" v-model="editForm.email" class="input-control" placeholder="colaborador@email.com" />
+              </div>
+              <div class="form-group m-0">
+                <label>Telefone / WhatsApp</label>
+                <input type="text" v-model="editForm.telefone" @input="formatarTelefone(editForm)" class="input-control" placeholder="(00) 00000-0000" maxlength="15" />
               </div>
             </div>
           </div>
@@ -206,14 +234,29 @@ export default defineComponent({
     const selectedUser = ref(null);
     const newPassword = ref('');
     const users = ref([]);
-    const editForm = ref({ id_usuario: null, nome: '', login: '', perfil: '' });
+    const editForm = ref({ id_usuario: null, nome: '', login: '', perfil: '', email: '', telefone: '' });
 
     const form = ref({
       nome: '',
       login: '',
       perfil: 'Atendente',
-      senha: ''
+      senha: '',
+      email: '',
+      telefone: ''
     });
+
+    const formatarTelefone = (obj) => {
+      if (!obj.telefone) return;
+      let val = obj.telefone.replace(/\D/g, '');
+      if (val.length > 11) val = val.slice(0, 11);
+      if (val.length > 6) {
+        obj.telefone = `(${val.slice(0, 2)}) ${val.slice(2, 7)}-${val.slice(7)}`;
+      } else if (val.length > 2) {
+        obj.telefone = `(${val.slice(0, 2)}) ${val.slice(2)}`;
+      } else if (val.length > 0) {
+        obj.telefone = `(${val}`;
+      }
+    };
 
     const fetchUsers = async () => {
       try {
@@ -248,7 +291,7 @@ export default defineComponent({
 
     const closeModal = () => {
       showAddModal.value = false;
-      form.value = { nome: '', login: '', perfil: 'Atendente', senha: '' };
+      form.value = { nome: '', login: '', perfil: 'Atendente', senha: '', email: '', telefone: '' };
     };
 
     const submitUser = async () => {
@@ -261,7 +304,9 @@ export default defineComponent({
           nome: form.value.nome,
           login: form.value.login,
           senha: form.value.senha,
-          perfil: form.value.perfil
+          perfil: form.value.perfil,
+          email: form.value.email || null,
+          telefone: form.value.telefone || null
         });
         await fetchUsers();
         closeModal();
@@ -281,14 +326,16 @@ export default defineComponent({
         id_usuario: user.id_usuario,
         nome: user.nome,
         login: user.login,
-        perfil: user.perfil
+        perfil: user.perfil,
+        email: user.email || '',
+        telefone: user.telefone || ''
       };
       showEditModal.value = true;
     };
 
     const closeEditModal = () => {
       showEditModal.value = false;
-      editForm.value = { id_usuario: null, nome: '', login: '', perfil: '' };
+      editForm.value = { id_usuario: null, nome: '', login: '', perfil: '', email: '', telefone: '' };
     };
 
     const submitEditUser = async () => {
@@ -300,7 +347,9 @@ export default defineComponent({
         await usuariosService.atualizar(editForm.value.id_usuario, {
           nome: editForm.value.nome,
           login: editForm.value.login,
-          perfil: editForm.value.perfil
+          perfil: editForm.value.perfil,
+          email: editForm.value.email || null,
+          telefone: editForm.value.telefone || null
         });
         await fetchUsers();
         closeEditModal();
@@ -338,6 +387,7 @@ export default defineComponent({
       newPassword,
       form,
       editForm,
+      formatarTelefone,
       getProfileBadge,
       toggleStatus,
       closeModal,
