@@ -15,7 +15,7 @@
 
       <!-- Título da OS + Status -->
       <div class="osv-doc-info">
-        <span class="osv-doc-title">OS #{{ os?.numero?.toString().padStart(5, '0') }}</span>
+        <span class="osv-doc-title">OS #{{ os?.numero?.toString().padStart(3, '0') }}</span>
         <span :class="['osv-badge', getBadgeClass(os?.status)]">{{ os?.status }}</span>
       </div>
 
@@ -86,7 +86,7 @@
               </div>
               <div class="os-doc-title-area">
                 <div class="os-doc-main-title">Ordem de Serviço</div>
-                <div class="os-doc-numero">#{{ os?.numero?.toString().padStart(5, '0') }}</div>
+                <div class="os-doc-numero">#{{ os?.numero?.toString().padStart(3, '0') }}</div>
                 <div class="os-doc-data">{{ dataAbertura }}</div>
               </div>
             </div>
@@ -455,7 +455,7 @@ export default defineComponent({
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `OS-${props.os?.numero?.toString().padStart(5, '0')}.pdf`;
+        a.download = `OS-${props.os?.numero?.toString().padStart(3, '0')}.pdf`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 5000);
         showToast('PDF baixado com sucesso!');
@@ -501,7 +501,7 @@ export default defineComponent({
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `OS-${props.os?.numero?.toString().padStart(5, '0')}.pdf`;
+          a.download = `OS-${props.os?.numero?.toString().padStart(3, '0')}.pdf`;
           a.click();
           setTimeout(() => URL.revokeObjectURL(url), 5000);
           showToast('Erro ao enviar via API. PDF baixado.', 'error');
@@ -545,7 +545,7 @@ export default defineComponent({
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `OS-${props.os?.numero?.toString().padStart(5, '0')}.pdf`;
+          a.download = `OS-${props.os?.numero?.toString().padStart(3, '0')}.pdf`;
           a.click();
           setTimeout(() => URL.revokeObjectURL(url), 5000);
           window.open(`mailto:${emailTo.value}?subject=Ordem+de+Servi%C3%A7o+%23${props.os?.numero}&body=Ol%C3%A1%2C+segue+em+anexo+a+OS+%23${props.os?.numero}.+O+PDF+foi+baixado+automaticamente.`);

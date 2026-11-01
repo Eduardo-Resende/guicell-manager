@@ -14,17 +14,14 @@ const osIncludes = [
   },
 ];
 
-// Gera número de OS sequencial: DDMMAAAA-XXXX
+// Gera número de OS sequencial: 001, 002... 999, 1000...
 const gerarNumeroOS = async () => {
-  const hoje = new Date();
-  const dd   = String(hoje.getDate()).padStart(2, '0');
-  const mm   = String(hoje.getMonth() + 1).padStart(2, '0');
-  const aaaa = hoje.getFullYear();
-  const prefixo = `${dd}${mm}${aaaa}`;
-  const count = await Movimentacao.count({
-    where: { origem: 'os', numero_os: { [Op.like]: `${prefixo}%` } },
-  });
-  return `${prefixo}-${String(count + 1).padStart(4, '0')}`;
+  const count = await Movimentacao.count({ where: { origem: 'os' } });
+  let seq = count + 1;
+  while (await Movimentacao.count({ where: { origem: 'os', numero_os: String(seq).padStart(3, '0') } }) > 0) {
+    seq++;
+  }
+  return String(seq).padStart(3, '0');
 };
 
 // ─── Listar ───────────────────────────────────────────────────────────────────
@@ -137,7 +134,7 @@ const atualizarItensEstoque = async (osId, novosItens, transaction) => {
 const atualizarStatus = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { status, diagnostico, itens, valor_orcado, forma_pagamento } = req.body;
+    const { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado } = req.body;
     const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t });
     if (!os) { await t.rollback(); return res.status(404).json({ error: 'OS não encontrada.' }); }
 
@@ -160,6 +157,7 @@ const atualizarStatus = async (req, res) => {
     if (status && !['Concluído', 'Entregue'].includes(status)) payload.data_fechamento = null;
     if (diagnostico  !== undefined) payload.diagnostico  = diagnostico;
     if (valor_orcado !== undefined) payload.valor_orcado = valor_orcado;
+    if (prazo_estimado !== undefined) payload.prazo_estimado = prazo_estimado || null;
     if (forma_pagamento !== undefined) {
       payload.forma_pagamento  = forma_pagamento;
       payload.status_pagamento = forma_pagamento === 'Fiado' ? 'pendente' : 'pago';
@@ -181,7 +179,7 @@ const atualizarStatus = async (req, res) => {
 const fechar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { valor_final, forma_pagamento, itens } = req.body;
+    const { valor_final, forma_pagamento, itens, prazo_estimado } = req.body;
     if (valor_final === undefined || !forma_pagamento) {
       await t.rollback(); return res.status(400).json({ error: 'Valor final e forma de pagamento são obrigatórios.' });
     }
@@ -198,13 +196,16 @@ const fechar = async (req, res) => {
     }
 
     const isFiado = forma_pagamento === 'Fiado';
-    await os.update({
+    const updatePayload = {
       status_os: 'Entregue',
       valor_total: valor_final,
       forma_pagamento,
       data_fechamento: new Date(),
       status_pagamento: isFiado ? 'pendente' : 'pago',
-    }, { transaction: t });
+    };
+    if (prazo_estimado !== undefined) updatePayload.prazo_estimado = prazo_estimado || null;
+
+    await os.update(updatePayload, { transaction: t });
 
     if (!isFiado) {
       const caixaExistente = await Caixa.findOne({ where: { id_movimentacao: os.id_movimentacao }, transaction: t });

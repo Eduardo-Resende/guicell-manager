@@ -104,7 +104,12 @@
               <td>{{ os.cliente }}</td>
               <td>{{ os.aparelho }}</td>
               <td>{{ os.tecnico }}</td>
-              <td>{{ os.prazo }}</td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <span>{{ os.prazo }}</span>
+                  <span v-if="isOverdue(os)" class="kanban-tag kanban-tag--late">Atrasada</span>
+                </div>
+              </td>
               <td>
                 <span :class="['badge', getBadgeClass(os.status)]">{{ os.status }}</span>
               </td>
@@ -345,7 +350,8 @@
                 </div>
                 <div class="os-info-data">
                   <span class="os-info-label">Prazo Estimado</span>
-                  <span class="os-info-val">{{ selectedOS.prazo }}</span>
+                  <input v-if="!isClosed" type="date" v-model="selectedOS.prazo_raw" class="os-info-date-input" />
+                  <span v-else class="os-info-val">{{ selectedOS.prazo }}</span>
                 </div>
               </div>
             </div>
@@ -459,7 +465,7 @@
                 <option value="Cancelado">Cancelado</option>
               </select>
             </div>
-            <div class="form-group m-0" v-if="['Concluído', 'Entregue'].includes(selectedOS.status)">
+            <div class="form-group m-0" v-if="selectedOS.status === 'Entregue'">
               <label>Forma de Pagamento *</label>
               <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed">
                 <option value="">Selecione a Forma de Pagamento...</option>
@@ -504,7 +510,7 @@
           </div>
           <div class="resumo-total-row">
             <span class="font-bold">Total a Receber</span>
-            <span class="text-warning font-bold text-lg">R$ {{ parseFloat(osSelecionada.valor_final || 0).toFixed(2) }}</span>
+            <span class="text-warning font-bold text-lg">R$ {{ parseFloat(osSelecionada.valor_total || 0).toFixed(2) }}</span>
           </div>
         </div>
         <div class="form-group mt-4 m-0">
@@ -594,6 +600,7 @@ export default defineComponent({
         alert('Pagamento registrado! R$ ' + parseFloat(osSelecionada.value.valor_total).toFixed(2) + ' via ' + formaPagamentoOs.value + ' lancado no caixa.');
         closePagarOsModal();
         await fetchOsPendentes();
+        await fetchOS();
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao registrar pagamento.');
       } finally {
@@ -657,7 +664,8 @@ export default defineComponent({
             cliente: os.cliente?.nome || 'N/A',
             aparelho: `${os.aparelho?.marca} ${os.aparelho?.modelo}`,
             tecnico: os.tecnico?.nome || 'Não atribuído',
-            prazo: os.prazo_estimado ? new Date(os.prazo_estimado + 'T12:00:00').toLocaleDateString('pt-BR') : 'Não definido',
+            prazo: os.prazo_estimado ? formatarData(os.prazo_estimado) : 'Não definido',
+            prazo_raw: os.prazo_estimado ? String(os.prazo_estimado).split('T')[0] : '',
             status: os.status_os,
             total: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
             maoObra: parseFloat(os.valor_orcado || 0),
@@ -741,6 +749,8 @@ export default defineComponent({
           ...os,
           status: detailedOS.status_os || os.status,
           originalStatus: detailedOS.status_os || os.status,
+          prazo_raw: detailedOS.prazo_estimado ? String(detailedOS.prazo_estimado).split('T')[0] : (os.prazo_raw || ''),
+          prazo: detailedOS.prazo_estimado ? formatarData(detailedOS.prazo_estimado) : (os.prazo || 'Não definido'),
           defeito: detailedOS.defeito_relatado || os.defeito || '',
           maoObra: parseFloat(detailedOS.valor_orcado || os.maoObra || 0),
           desconto: parseFloat(detailedOS.desconto || 0),
@@ -808,7 +818,7 @@ export default defineComponent({
         return;
       }
 
-      if (['Concluído', 'Entregue'].includes(selectedOS.value.status) && !selectedOS.value.formaPagamento) {
+      if (selectedOS.value.status === 'Entregue' && !selectedOS.value.formaPagamento) {
         alert('Por favor, selecione a Forma de Pagamento.');
         return;
       }
@@ -823,6 +833,7 @@ export default defineComponent({
           await osService.fechar(id, {
             valor_final: total,
             forma_pagamento: selectedOS.value.formaPagamento,
+            prazo_estimado: selectedOS.value.prazo_raw || null,
             itens: selectedOS.value.parts.map(p => ({
               id_produto: p.id,
               quantidade: p.qtd || 1,
@@ -841,11 +852,13 @@ export default defineComponent({
               valor_unitario: p.preco
             })),
             selectedOS.value.maoObra,
-            selectedOS.value.formaPagamento
+            selectedOS.value.formaPagamento,
+            selectedOS.value.prazo_raw || null
           );
         }
 
         await fetchOS();
+        await fetchOsPendentes();
         showDetailModal.value = false;
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao salvar alterações da OS.');
@@ -853,7 +866,10 @@ export default defineComponent({
     };
 
     const imprimirComprovante = (os) => {
-      osParaViewer.value = os;
+      osParaViewer.value = {
+        ...os,
+        prazo: os.prazo_raw ? formatarData(os.prazo_raw) : (os.prazo || 'Não definido')
+      };
       showViewer.value = true;
     };
 
@@ -884,11 +900,13 @@ export default defineComponent({
     const osForStatus = (status) => ordens.value.filter(os => os.status === status);
 
     const isOverdue = (os) => {
-      if (['Concluído', 'Entregue', 'Cancelado'].includes(os.status)) return false;
+      const statusAtual = (os.status || os.status_os || '').trim();
+      if (['Concluído', 'Entregue', 'Cancelado'].includes(statusAtual)) return false;
       if (!os.prazo || os.prazo === 'Não definido') return false;
       const parts = os.prazo.split('/');
       if (parts.length !== 3) return false;
-      const date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      const date = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+      date.setHours(0, 0, 0, 0);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       return date < today;
@@ -910,7 +928,7 @@ export default defineComponent({
       const targetOS = draggedOS.value;
       draggedOS.value = null;
 
-      if (['Concluído', 'Entregue'].includes(newStatus)) {
+      if (newStatus === 'Entregue') {
         await viewDetail(targetOS);
         if (selectedOS.value) {
           selectedOS.value.status = newStatus;
@@ -1102,7 +1120,7 @@ export default defineComponent({
 
 .os-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1114,6 +1132,7 @@ export default defineComponent({
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 10px 12px;
+  min-width: 0;
 }
 
 .os-info-icon {
@@ -1133,6 +1152,8 @@ export default defineComponent({
   flex-direction: column;
   gap: 2px;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
 }
 
 .os-info-label {
@@ -1148,6 +1169,8 @@ export default defineComponent({
   color: var(--text-white, #ffffff);
   white-space: nowrap;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
   text-overflow: ellipsis;
 }
 
@@ -1155,6 +1178,7 @@ export default defineComponent({
 .os-defeito-card {
   background: rgba(245, 158, 11, 0.05);
   border: 1px solid rgba(245, 158, 11, 0.2);
+  margin-top: 10px;
   border-radius: 8px;
   padding: 12px;
 }
@@ -1215,6 +1239,8 @@ export default defineComponent({
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
 }
 
 .parts-header {
@@ -1595,6 +1621,8 @@ export default defineComponent({
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
   text-overflow: ellipsis;
 }
 
@@ -1604,6 +1632,8 @@ export default defineComponent({
   margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
   text-overflow: ellipsis;
 }
 
@@ -1620,6 +1650,8 @@ export default defineComponent({
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
+  min-width: 0;
+  flex: 1;
   text-overflow: ellipsis;
   flex: 1;
 }
@@ -1720,4 +1752,6 @@ export default defineComponent({
 .btn-success-solid { background: var(--success, #22c55e); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
 .btn-success-solid:hover { opacity: 0.85; }
 .btn-success-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+.os-info-date-input { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border, #1e293b); border-radius: 6px; padding: 3px 8px; color: var(--text-white, #ffffff); font-size: 0.82rem; font-family: var(--font-body); width: 100%; outline: none; }
+.os-info-date-input:focus { border-color: var(--primary, #008f39); }
 </style>
