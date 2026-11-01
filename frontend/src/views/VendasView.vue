@@ -149,8 +149,9 @@
               <label>Forma de Pagamento</label>
               <select v-model="formaPagamento" class="input-control select-control">
                 <option value="Dinheiro">Dinheiro</option>
-                <option value="Cartao">Cartao Debito/Credito</option>
                 <option value="PIX">PIX</option>
+                <option value="Cartão de débito">Cartão de débito</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
                 <option value="Fiado">Fiado (Pagar Depois)</option>
               </select>
             </div>
@@ -425,8 +426,9 @@
             <select v-model="formaPagamentoFiado" class="input-control select-control">
               <option value="">Selecione...</option>
               <option value="Dinheiro">Dinheiro</option>
-              <option value="Cartao">Cartao Debito/Credito</option>
               <option value="PIX">PIX</option>
+              <option value="Cartão de débito">Cartão de débito</option>
+              <option value="Cartão de crédito">Cartão de crédito</option>
             </select>
           </div>
         </div>

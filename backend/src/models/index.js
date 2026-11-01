@@ -28,6 +28,10 @@ const LogAuditoria   = require('./LogAuditoria')(sequelize, Sequelize.DataTypes)
 const Movimentacao   = require('./Movimentacao')(sequelize, Sequelize.DataTypes);
 const ItemMovimentacao = require('./ItemMovimentacao')(sequelize, Sequelize.DataTypes);
 const Permissao      = require('./Permissao')(sequelize, Sequelize.DataTypes);
+const ContaFinanceira    = require('./ContaFinanceira')(sequelize, Sequelize.DataTypes);
+const FormaPagamento     = require('./FormaPagamento')(sequelize, Sequelize.DataTypes);
+const CaixaPagamento     = require('./CaixaPagamento')(sequelize, Sequelize.DataTypes);
+const TransferenciaCaixa = require('./TransferenciaCaixa')(sequelize, Sequelize.DataTypes);
 
 // ─── Mapa de models ───────────────────────────────────────────────────────────
 const models = {
@@ -45,6 +49,10 @@ const models = {
   Movimentacao,
   ItemMovimentacao,
   Permissao,
+  ContaFinanceira,
+  FormaPagamento,
+  CaixaPagamento,
+  TransferenciaCaixa,
 };
 
 // Dispara as associações de cada model

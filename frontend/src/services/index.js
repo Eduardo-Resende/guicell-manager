@@ -78,10 +78,20 @@ export const vendasService = {
 
 export const caixaService = {
   listar: (filtros) => api.get('/caixa', { params: filtros }).then(r => r.data),
-  resumoDia: () => api.get('/caixa/resumo-dia').then(r => r.data),
-  abrir: (valor) => api.post('/caixa/abrir', { valor }).then(r => r.data),
-  fechar: () => api.post('/caixa/fechar').then(r => r.data),
+  resumo: () => api.get('/caixa/resumo').then(r => r.data),
+  resumoDia: () => api.get('/caixa/resumo').then(r => r.data),
+  formasPagamento: () => api.get('/caixa/formas-pagamento').then(r => r.data),
+  aberturaInfo: () => api.get('/caixa/abertura-info').then(r => r.data),
+  fechamentoPrevia: () => api.get('/caixa/fechamento-previa').then(r => r.data),
+  abrir: (dados) => api.post('/caixa/abrir', typeof dados === 'object' ? dados : { valor_contado: dados }).then(r => r.data),
+  fechar: (dados) => api.post('/caixa/fechar', dados || {}).then(r => r.data),
   registrarManual: (dados) => api.post('/caixa', dados).then(r => r.data),
+  estornar: (id, motivo) => api.post(`/caixa/${id}/estornar`, { motivo }).then(r => r.data),
+  sessoes: (params) => api.get('/caixa/sessoes', { params }).then(r => r.data),
+  transferencias: (params) => api.get('/caixa/transferencias', { params }).then(r => r.data),
+  buscarTransferencia: (id) => api.get(`/caixa/transferencias/${id}`).then(r => r.data),
+  criarTransferencia: (dados) => api.post('/caixa/transferencias', dados).then(r => r.data),
+  cancelarTransferencia: (id, motivo) => api.post(`/caixa/transferencias/${id}/cancelar`, { motivo }).then(r => r.data),
 };
 
 export const relatoriosService = {
@@ -118,6 +128,7 @@ export const comprasService = {
   listar: (filtros) => api.get('/compras', { params: filtros }).then(r => r.data),
   buscarPorId: (id) => api.get(`/compras/${id}`).then(r => r.data),
   criar: (dados) => api.post('/compras', dados).then(r => r.data),
+  pagar: (id, pagamentos) => api.post(`/compras/${id}/pagar`, { pagamentos }).then(r => r.data),
   cancelar: (id, motivo) => api.post(`/compras/${id}/cancelar`, { motivo }).then(r => r.data),
 };
 

@@ -1,7 +1,15 @@
 'use strict';
 
-const { Movimentacao, ItemMovimentacao, Produto, Cliente, Usuario, Caixa, LogAuditoria, sequelize } = require('../models');
+const { Movimentacao, ItemMovimentacao, Produto, Cliente, Usuario, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const fin = require('../services/financeiro.service');
+
+/** Nome do cliente, usado como "favorecido/origem" do lançamento financeiro. */
+const nomeCliente = async (id_cliente, transaction) => {
+  if (!id_cliente) return null;
+  const cliente = await Cliente.findByPk(id_cliente, { attributes: ['nome'], transaction });
+  return cliente ? cliente.nome : null;
+};
 
 const vendaIncludes = [
   { model: Cliente, as: 'cliente',   attributes: ['id_cliente', 'nome'] },
@@ -45,15 +53,18 @@ const listarPendentes = async (req, res) => {
 };
 
 // ─── Criar venda ─────────────────────────────────────────────────────────────
+// Pagamento: `forma_pagamento` (única) ou `pagamentos: [{ forma, valor }]` (dividido). A soma deve fechar o total.
+// "Fiado" não movimenta o caixa na venda; só quando o recebimento for registrado.
 const criar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { id_cliente, forma_pagamento, desconto, itens } = req.body;
+    const { id_cliente, forma_pagamento, pagamentos, desconto, itens } = req.body;
+    const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
 
     if (!itens || itens.length === 0) {
       await t.rollback(); return res.status(400).json({ error: 'A venda deve ter ao menos 1 item.' });
     }
-    if (!forma_pagamento) {
+    if (!forma_pagamento && !dividido) {
       await t.rollback(); return res.status(400).json({ error: 'Forma de pagamento é obrigatória.' });
     }
 
@@ -70,7 +81,13 @@ const criar = async (req, res) => {
     }
 
     const valor_total = parseFloat((totalBruto - (desconto || 0)).toFixed(2));
-    const isPendente  = forma_pagamento === 'Fiado';
+    const isPendente  = !dividido && forma_pagamento === 'Fiado';
+
+    // Valida forma(s) de pagamento e a soma ANTES de gravar qualquer coisa
+    let pagamento = null;
+    if (!isPendente) {
+      pagamento = fin.pagamentosDaOperacao({ pagamentos, forma_pagamento, valorTotal: valor_total }, await fin.carregarCadastros(t));
+    }
 
     const venda = await Movimentacao.create({
       origem: 'venda',
@@ -78,7 +95,7 @@ const criar = async (req, res) => {
       id_usuario:      req.usuario.id_usuario,
       data_movimentacao: new Date(),
       valor_total,
-      forma_pagamento,
+      forma_pagamento: isPendente ? 'Fiado' : pagamento.rotulo,
       desconto:         desconto || 0,
       status_pagamento: isPendente ? 'pendente' : 'pago',
     }, { transaction: t });
@@ -93,23 +110,26 @@ const criar = async (req, res) => {
     }
 
     if (!isPendente) {
-      await Caixa.create({
-        id_usuario:      req.usuario.id_usuario,
-        data:            new Date(),
+      await fin.registrarLancamento({
         tipo:            'entrada',
-        valor:           valor_total,
         descricao:       `Venda #${venda.id_movimentacao}`,
         categoria:       'Venda',
+        origem:          'venda',
+        favorecido:      await nomeCliente(id_cliente, t),
+        id_usuario:      req.usuario.id_usuario,
         id_movimentacao: venda.id_movimentacao,
-      }, { transaction: t });
+        pagamentos:      fin.pernasParaPagamentos(pagamento.pernas),
+        valorTotal:      valor_total,
+        ip:              req.ip,
+        transaction:     t,
+      });
     }
 
     await t.commit();
     return res.status(201).json(venda);
   } catch (err) {
-    await t.rollback();
-    console.error('[Vendas] Erro ao criar:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Vendas/criar');
   }
 };
 
@@ -117,32 +137,41 @@ const criar = async (req, res) => {
 const pagarFiado = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { forma_pagamento } = req.body;
-    if (!forma_pagamento || forma_pagamento === 'Fiado') {
+    const { forma_pagamento, pagamentos } = req.body;
+    const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
+    if (!dividido && (!forma_pagamento || forma_pagamento === 'Fiado')) {
       await t.rollback(); return res.status(400).json({ error: 'Informe uma forma de pagamento válida (não pode ser Fiado).' });
     }
 
-    const venda = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'venda' }, transaction: t });
+    const venda = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'venda' }, transaction: t, lock: t.LOCK.UPDATE });
     if (!venda)                       { await t.rollback(); return res.status(404).json({ error: 'Venda não encontrada.' }); }
     if (venda.status_pagamento !== 'pendente') { await t.rollback(); return res.status(400).json({ error: 'Esta venda já foi paga.' }); }
 
-    await venda.update({ status_pagamento: 'pago', forma_pagamento }, { transaction: t });
-    await Caixa.create({
-      id_usuario:      req.usuario.id_usuario,
-      data:            new Date(),
+    const pagamento = fin.pagamentosDaOperacao(
+      { pagamentos, forma_pagamento, valorTotal: parseFloat(venda.valor_total) },
+      await fin.carregarCadastros(t)
+    );
+
+    await venda.update({ status_pagamento: 'pago', forma_pagamento: pagamento.rotulo }, { transaction: t });
+    await fin.registrarLancamento({
       tipo:            'entrada',
-      valor:           parseFloat(venda.valor_total),
       descricao:       `Recebimento Venda #${venda.id_movimentacao} (Fiado)`,
       categoria:       'Venda',
+      origem:          'venda',
+      favorecido:      await nomeCliente(venda.id_cliente, t),
+      id_usuario:      req.usuario.id_usuario,
       id_movimentacao: venda.id_movimentacao,
-    }, { transaction: t });
+      pagamentos:      fin.pernasParaPagamentos(pagamento.pernas),
+      valorTotal:      parseFloat(venda.valor_total),
+      ip:              req.ip,
+      transaction:     t,
+    });
 
     await t.commit();
     return res.json(venda);
   } catch (err) {
-    await t.rollback();
-    console.error('[Vendas] Erro ao pagar fiado:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Vendas/pagarFiado');
   }
 };
 
@@ -155,6 +184,9 @@ const cancelar = async (req, res) => {
       await t.rollback();
       return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
     }
+
+    // Trava a venda para que dois cancelamentos simultâneos não estornem o caixa duas vezes
+    await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'venda' }, transaction: t, lock: t.LOCK.UPDATE });
 
     const venda = await Movimentacao.findOne({
       where: { id_movimentacao: req.params.id, origem: 'venda' },
@@ -195,20 +227,23 @@ const cancelar = async (req, res) => {
       { transaction: t }
     );
 
-    // 3. Se estava paga (à vista ou fiado já recebido), lançar saída de estorno no Caixa
+    // 3. Se estava paga (à vista ou fiado já recebido), estornar o(s) lançamento(s) do Caixa com
+    //    exatamente as mesmas formas de pagamento e contas da operação original (inclusive se foi dividida)
     if (estavaPaga) {
-      await Caixa.create(
-        {
-          id_usuario:      req.usuario.id_usuario,
-          data:            new Date(),
-          tipo:            'saida',
-          valor:           parseFloat(venda.valor_total),
-          descricao:       `Cancelamento Venda #${venda.id_movimentacao} — Motivo: ${motivoLimpo}`.slice(0, 200),
-          categoria:       'Venda',
-          id_movimentacao: venda.id_movimentacao,
-        },
-        { transaction: t }
-      );
+      const estornos = await fin.estornarPorMovimentacao(venda.id_movimentacao, {
+        id_usuario:  req.usuario.id_usuario,
+        descricao:   `Cancelamento Venda #${venda.id_movimentacao} — Motivo: ${motivoLimpo}`,
+        permitirNegativo: !!(req.body?.autorizar_saldo_negativo && req.usuario?.permissoes?.['caixa.aprovar']),
+        ip:          req.ip,
+        transaction: t,
+      });
+      if (estornos.length === 0 && LogAuditoria) {
+        await fin.registrarAuditoria({
+          id_usuario: req.usuario.id_usuario, acao: 'ESTORNO_SEM_LANCAMENTO', entidade: 'movimentacao',
+          id_registro: venda.id_movimentacao, ip: req.ip,
+          posteriores: { aviso: 'Venda paga sem lançamento financeiro localizado; nenhum estorno de caixa foi gerado.' },
+        }, t);
+      }
     }
 
     // 4. Registrar log de auditoria
@@ -234,9 +269,8 @@ const cancelar = async (req, res) => {
     });
     return res.json(vendaAtualizada);
   } catch (err) {
-    await t.rollback();
-    console.error('[Vendas] Erro ao cancelar venda:', err);
-    return res.status(500).json({ error: 'Erro interno ao cancelar venda.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Vendas/cancelar', 'Erro interno ao cancelar venda.');
   }
 };
 

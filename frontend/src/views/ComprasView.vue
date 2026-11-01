@@ -159,6 +159,95 @@
           </div>
         </div>
 
+        <!-- Condições de Pagamento e Formas Financeiras -->
+        <div v-if="compraForm.itens.length > 0" class="card mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="section-icon">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+              Condições & Formas de Pagamento
+            </h3>
+            <div class="flex gap-2">
+              <label class="flex items-center gap-2 cursor-pointer text-sm">
+                <input type="checkbox" v-model="compraForm.a_prazo" @change="onToggleAPrazo" />
+                <span>Compra a Prazo (Pagar Depois / Pendente)</span>
+              </label>
+            </div>
+          </div>
+
+          <div v-if="!compraForm.a_prazo">
+            <div class="flex justify-between items-center mb-3">
+              <p class="text-sm text-muted">
+                Informe a forma de pagamento ou divida o valor entre múltiplos métodos:
+              </p>
+              <button type="button" class="btn btn-secondary btn-xs" @click="adicionarPagamentoCompra">
+                + Adicionar Forma de Pagamento
+              </button>
+            </div>
+
+            <div v-for="(p, idx) in compraForm.pagamentos" :key="idx" class="pagamento-compra-row mb-2">
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <div class="col-span-5">
+                  <select v-model="p.forma" @change="onFormaCompraChange(p)" required class="input-control select-control input-sm">
+                    <option value="dinheiro">Dinheiro em Espécie</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao_debito">Cartão de Débito</option>
+                    <option value="cartao_credito">Cartão de Crédito</option>
+                  </select>
+                </div>
+                <div class="col-span-4">
+                  <select v-model="p.conta" required class="input-control select-control input-sm">
+                    <option value="gaveta" v-if="p.forma === 'dinheiro'">Caixa (gaveta)</option>
+                    <option value="cofre" v-if="p.forma === 'dinheiro'">Cofre</option>
+                    <option value="loja" v-if="p.forma !== 'dinheiro'">Conta da loja (eletrônica)</option>
+                  </select>
+                </div>
+                <div class="col-span-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    v-model.number="p.valor"
+                    required
+                    class="input-control input-sm font-bold"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+                <div class="col-span-1 text-right" v-if="compraForm.pagamentos.length > 1">
+                  <button type="button" class="btn btn-danger btn-xs btn-icon-only" @click="removerPagamentoCompra(idx)">
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resumo Financeiro da Compra -->
+            <div class="pagamento-resumo mt-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-muted">Total Pago Imediatamente:</span>
+                <span class="font-bold text-white">R$ {{ totalPagoCompra.toFixed(2) }}</span>
+              </div>
+              <div v-if="saldoPendenteCompra > 0" class="flex justify-between text-sm mt-1">
+                <span class="text-warning">Saldo Pendente (a pagar futuramente):</span>
+                <span class="font-bold text-warning">R$ {{ saldoPendenteCompra.toFixed(2) }}</span>
+              </div>
+              <div v-if="saldoPendenteCompra < 0" class="flex justify-between text-sm mt-1">
+                <span class="text-danger font-bold">Aviso: Total distribuído excede o valor da compra!</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="prazo-box">
+            <p class="text-sm text-warning font-semibold">
+              📌 Compra a prazo: nenhum valor será retirado do caixa neste momento.
+            </p>
+            <p class="text-xs text-muted mt-1">
+              O valor total de R$ {{ totalCompra.toFixed(2) }} ficará registrado como saldo pendente e os pagamentos poderão ser liquidados pelo histórico de compras.
+            </p>
+          </div>
+        </div>
+
         <!-- Botões de Ação -->
         <div class="flex gap-3 justify-end">
           <button type="button" class="btn btn-secondary" @click="resetarFormulario">
@@ -226,19 +315,33 @@
                 <td>{{ formatarData(c.data_movimentacao) }}</td>
                 <td class="font-semibold text-white">{{ nomeFornecedor(c) }}</td>
                 <td>{{ c.itens?.length || 0 }} item(ns)</td>
-                <td :class="['font-bold', c.status_pagamento === 'cancelado' ? 'text-muted' : 'text-success']" :style="c.status_pagamento === 'cancelado' ? 'text-decoration: line-through;' : ''">
+                <td :class="['font-bold', c.status_pagamento === 'cancelado' ? 'text-muted' : 'text-white']" :style="c.status_pagamento === 'cancelado' ? 'text-decoration: line-through;' : ''">
                   R$ {{ parseFloat(c.valor_total).toFixed(2) }}
+                  <div v-if="c.status_pagamento !== 'cancelado' && c.valor_pendente > 0" class="text-xs text-warning font-normal">
+                    Pago: R$ {{ (parseFloat(c.valor_pago) || 0).toFixed(2) }}
+                  </div>
                 </td>
                 <td class="text-muted">{{ c.usuario?.nome || '—' }}</td>
                 <td>
                   <span v-if="c.status_pagamento === 'cancelado'" class="badge badge-danger">Cancelada</span>
-                  <span v-else class="badge badge-success">Concluída</span>
+                  <span v-else-if="c.valor_pendente > 0" class="badge badge-warning">
+                    Pendente (Falta R$ {{ c.valor_pendente.toFixed(2) }})
+                  </span>
+                  <span v-else class="badge badge-success">Pago</span>
                   <div v-if="c.status_pagamento === 'cancelado' && c.motivo_cancelamento" class="text-xs text-muted mt-1" style="max-width: 220px; white-space: normal;">
                     Motivo: {{ c.motivo_cancelamento }}
                   </div>
                 </td>
                 <td class="text-right">
                   <div class="flex gap-2 justify-end">
+                    <button
+                      v-if="c.status_pagamento !== 'cancelado' && c.valor_pendente > 0 && $pode('compras.criar')"
+                      class="btn btn-success btn-xs"
+                      @click="abrirModalPagarCompra(c)"
+                      title="Liquidar valor pendente"
+                    >
+                      Pagar Saldo
+                    </button>
                     <button class="btn btn-secondary btn-xs" @click="verDetalhes(c)">
                       Detalhes
                     </button>
@@ -418,7 +521,7 @@
             <span class="detalhe-label">Observação:</span> {{ compraDetalhes.observacao }}
           </div>
           <h4 class="mb-3">Itens da Compra</h4>
-          <div class="table-responsive">
+          <div class="table-responsive mb-4">
             <table>
               <thead>
                 <tr>
@@ -440,13 +543,133 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Histórico de Pagamentos de Caixa -->
+          <div v-if="compraDetalhes.pagamentos_caixa && compraDetalhes.pagamentos_caixa.length > 0">
+            <h4 class="mb-2">Pagamentos Efetuados no Caixa</h4>
+            <div class="pagamentos-lista mb-4">
+              <div v-for="lanc in compraDetalhes.pagamentos_caixa" :key="lanc.id_caixa" class="pagamento-card-item">
+                <div class="flex justify-between items-center text-sm">
+                  <div>
+                    <span class="font-semibold text-white">{{ formatarDataHora(lanc.data) }}</span>
+                    <span v-for="(p, i) in lanc.pagamentos" :key="i" class="ml-2 badge badge-muted">
+                      {{ p.forma }} ({{ p.conta }}) &bull; R$ {{ p.valor.toFixed(2) }}
+                    </span>
+                  </div>
+                  <span class="font-bold text-success">
+                    R$ {{ lanc.pagamentos.reduce((acc, p) => acc + p.valor, 0).toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="compraDetalhes.status_pagamento !== 'cancelado'" class="text-sm text-warning mb-4">
+            Nenhum pagamento registrado no caixa ainda (compra a prazo / pendente).
+          </div>
         </div>
         <div class="modal-footer flex gap-2 justify-end">
+          <button
+            v-if="compraDetalhes.status_pagamento !== 'cancelado' && compraDetalhes.valor_pendente > 0 && $pode('compras.criar')"
+            class="btn btn-success"
+            @click="abrirModalPagarCompra(compraDetalhes)"
+          >
+            Pagar Saldo Pendente (R$ {{ compraDetalhes.valor_pendente.toFixed(2) }})
+          </button>
           <button v-if="compraDetalhes.status_pagamento !== 'cancelado' && $pode('compras.cancelar')" class="btn btn-danger" @click="abrirModalCancelarCompra(compraDetalhes)">
             Cancelar Compra
           </button>
           <button class="btn btn-secondary" @click="compraDetalhes = null">Fechar</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal: Pagar Saldo Pendente da Compra -->
+    <div v-if="showPagarCompraModal" class="modal-overlay" @click.self="showPagarCompraModal = false">
+      <div class="modal-content" style="max-width: 520px;">
+        <div class="modal-header">
+          <h3>Pagar Compra #{{ compraParaPagar ? String(compraParaPagar.id_movimentacao).padStart(4, '0') : '' }}</h3>
+          <button class="close-btn" @click="showPagarCompraModal = false">&times;</button>
+        </div>
+        <form @submit.prevent="confirmarPagamentoCompra">
+          <div class="modal-body">
+            <div class="conferencia-box mb-4">
+              <div class="conferencia-item">
+                <span class="text-muted">Fornecedor:</span>
+                <span class="font-bold text-white">{{ nomeFornecedor(compraParaPagar) }}</span>
+              </div>
+              <div class="conferencia-item mt-1">
+                <span class="text-muted">Valor Total da Compra:</span>
+                <span>R$ {{ parseFloat(compraParaPagar?.valor_total || 0).toFixed(2) }}</span>
+              </div>
+              <div class="conferencia-item mt-1">
+                <span class="text-muted">Já Pago:</span>
+                <span class="text-success">R$ {{ (parseFloat(compraParaPagar?.valor_pago) || 0).toFixed(2) }}</span>
+              </div>
+              <div class="conferencia-item mt-1 font-bold">
+                <span class="text-warning">Saldo Pendente:</span>
+                <span class="text-warning text-lg">R$ {{ (compraParaPagar?.valor_pendente || 0).toFixed(2) }}</span>
+              </div>
+            </div>
+
+            <p class="text-sm text-muted mb-3">
+              Informe a forma e conta financeira para quitar o saldo (ou parte dele):
+            </p>
+
+            <div v-for="(p, idx) in pagamentosQuitar" :key="idx" class="pagamento-compra-row mb-2">
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <div class="col-span-5">
+                  <select v-model="p.forma" @change="onFormaCompraChange(p)" required class="input-control select-control input-sm">
+                    <option value="dinheiro">Dinheiro em Espécie</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao_debito">Cartão de Débito</option>
+                    <option value="cartao_credito">Cartão de Crédito</option>
+                  </select>
+                </div>
+                <div class="col-span-4">
+                  <select v-model="p.conta" required class="input-control select-control input-sm">
+                    <option value="gaveta" v-if="p.forma === 'dinheiro'">Caixa (gaveta)</option>
+                    <option value="cofre" v-if="p.forma === 'dinheiro'">Cofre</option>
+                    <option value="loja" v-if="p.forma !== 'dinheiro'">Conta da loja</option>
+                  </select>
+                </div>
+                <div class="col-span-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    v-model.number="p.valor"
+                    required
+                    class="input-control input-sm font-bold"
+                    placeholder="Valor R$"
+                  />
+                </div>
+                <div class="col-span-1 text-right" v-if="pagamentosQuitar.length > 1">
+                  <button type="button" class="btn btn-danger btn-xs btn-icon-only" @click="removerPagamentoQuitar(idx)">
+                    &times;
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-2">
+              <button type="button" class="btn btn-secondary btn-xs" @click="adicionarPagamentoQuitar">
+                + Adicionar Outra Forma
+              </button>
+              <div class="text-right text-xs">
+                <span class="text-muted">Total a Pagar Agora: </span>
+                <span class="font-bold text-white">R$ {{ totalPagarAgora.toFixed(2) }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer flex gap-2">
+            <button type="button" class="btn btn-secondary flex-1" @click="showPagarCompraModal = false" :disabled="pagandoCompra">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-success flex-1" :disabled="pagandoCompra || totalPagarAgora <= 0 || totalPagarAgora > (compraParaPagar?.valor_pendente || 0)">
+              {{ pagandoCompra ? 'Registrando...' : 'Confirmar Pagamento' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -573,6 +796,8 @@ export default defineComponent({
       id_fornecedor: '',
       observacao: '',
       itens: [],
+      a_prazo: false,
+      pagamentos: [{ forma: 'dinheiro', conta: 'gaveta', valor: '' }],
     });
     const compraForm = ref(novoCompraForm());
 
@@ -609,11 +834,105 @@ export default defineComponent({
 
     const totalItens = computed(() => compraForm.value.itens.reduce((acc, i) => acc + (parseInt(i.quantidade) || 0), 0));
     const totalCompra = computed(() => compraForm.value.itens.reduce((acc, i) => acc + subtotalItem(i), 0));
+    const totalPagoCompra = computed(() => {
+      if (compraForm.value.a_prazo) return 0;
+      return compraForm.value.pagamentos.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+    });
+    const saldoPendenteCompra = computed(() => {
+      return Math.round((totalCompra.value - totalPagoCompra.value) * 100) / 100;
+    });
+
     const totalHistorico = computed(() =>
       compras.value
         .filter(c => c.status_pagamento !== 'cancelado')
         .reduce((acc, c) => acc + parseFloat(c.valor_total || 0), 0)
     );
+
+    const onToggleAPrazo = () => {
+      if (compraForm.value.a_prazo) {
+        compraForm.value.pagamentos = [];
+      } else {
+        compraForm.value.pagamentos = [{ forma: 'dinheiro', conta: 'gaveta', valor: totalCompra.value > 0 ? totalCompra.value : '' }];
+      }
+    };
+
+    const onFormaCompraChange = (p) => {
+      if (p.forma === 'dinheiro') p.conta = 'gaveta';
+      else p.conta = 'loja';
+    };
+
+    const adicionarPagamentoCompra = () => {
+      compraForm.value.pagamentos.push({
+        forma: 'pix',
+        conta: 'loja',
+        valor: saldoPendenteCompra.value > 0 ? saldoPendenteCompra.value : '',
+      });
+    };
+
+    const removerPagamentoCompra = (idx) => {
+      compraForm.value.pagamentos.splice(idx, 1);
+    };
+
+    // ── Pagamento de Compra Pendente ───────────────────────────────────────────
+    const showPagarCompraModal = ref(false);
+    const compraParaPagar = ref(null);
+    const pagandoCompra = ref(false);
+    const pagamentosQuitar = ref([]);
+
+    const totalPagarAgora = computed(() => {
+      return pagamentosQuitar.value.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+    });
+
+    const abrirModalPagarCompra = (compra) => {
+      compraParaPagar.value = compra;
+      pagamentosQuitar.value = [{
+        forma: 'dinheiro',
+        conta: 'gaveta',
+        valor: compra.valor_pendente > 0 ? compra.valor_pendente : '',
+      }];
+      showPagarCompraModal.value = true;
+    };
+
+    const adicionarPagamentoQuitar = () => {
+      const restante = Math.max((compraParaPagar.value?.valor_pendente || 0) - totalPagarAgora.value, 0);
+      pagamentosQuitar.value.push({
+        forma: 'pix',
+        conta: 'loja',
+        valor: restante > 0 ? Math.round(restante * 100) / 100 : '',
+      });
+    };
+
+    const removerPagamentoQuitar = (idx) => {
+      pagamentosQuitar.value.splice(idx, 1);
+    };
+
+    const confirmarPagamentoCompra = async () => {
+      if (totalPagarAgora.value <= 0) {
+        alert('Informe ao menos uma forma de pagamento com valor.');
+        return;
+      }
+      if (totalPagarAgora.value > (compraParaPagar.value?.valor_pendente || 0)) {
+        alert('O valor informado excede o saldo pendente desta compra.');
+        return;
+      }
+
+      pagandoCompra.value = true;
+      try {
+        const payload = pagamentosQuitar.value.map(p => ({
+          forma: p.forma,
+          conta: p.conta,
+          valor: Number(p.valor),
+        }));
+        await comprasService.pagar(compraParaPagar.value.id_movimentacao, payload);
+        showPagarCompraModal.value = false;
+        await buscarCompras();
+        alert('✅ Pagamento registrado com sucesso! O valor foi lançado como saída no Caixa.');
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao registrar pagamento da compra.');
+      } finally {
+        pagandoCompra.value = false;
+      }
+    };
 
     // ── Cancelamento de Compra ─────────────────────────────────────────────────
     const showCancelarCompraModal = ref(false);
@@ -756,12 +1075,36 @@ export default defineComponent({
         }
       }
 
+      // Validar pagamentos se não for a prazo
+      if (!compraForm.value.a_prazo) {
+        if (compraForm.value.pagamentos.length === 0) {
+          alert('Informe ao menos uma forma de pagamento ou marque a compra como "A Prazo".');
+          return;
+        }
+        for (const p of compraForm.value.pagamentos) {
+          if (!p.valor || Number(p.valor) <= 0) {
+            alert('Informe um valor válido maior que zero para todas as formas de pagamento.');
+            return;
+          }
+        }
+        if (saldoPendenteCompra.value < 0) {
+          alert('O valor total pago não pode ser maior que o valor total da compra.');
+          return;
+        }
+      }
+
       salvando.value = true;
       try {
         const payload = {
           data_compra: compraForm.value.data_compra,
           id_fornecedor: compraForm.value.id_fornecedor,
           observacao: compraForm.value.observacao || null,
+          a_prazo: compraForm.value.a_prazo,
+          pagamentos: compraForm.value.a_prazo ? [] : compraForm.value.pagamentos.map(p => ({
+            forma: p.forma,
+            conta: p.conta,
+            valor: Number(p.valor),
+          })),
           itens: compraForm.value.itens.map(item => ({
             id_produto: parseInt(item.id_produto),
             descricao_item: item.descricao_item,
@@ -775,7 +1118,7 @@ export default defineComponent({
         await buscarProdutos(); // Atualiza estoque local
         activeTab.value = 'historico';
         await buscarCompras();
-        alert('✅ Compra registrada com sucesso! Estoque atualizado e despesa lançada no caixa.');
+        alert('✅ Compra registrada com sucesso! Estoque atualizado.');
       } catch (err) {
         alert(err.response?.data?.error || 'Erro ao registrar compra.');
       } finally {
@@ -908,6 +1251,12 @@ export default defineComponent({
       }
     };
 
+    const formatarDataHora = (dataStr) => {
+      if (!dataStr) return '—';
+      const d = new Date(dataStr);
+      return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    };
+
     onMounted(async () => {
       await buscarFornecedores();
       await buscarProdutos();
@@ -937,7 +1286,22 @@ export default defineComponent({
       subtotalItem,
       totalItens,
       totalCompra,
+      totalPagoCompra,
+      saldoPendenteCompra,
       totalHistorico,
+      onToggleAPrazo,
+      onFormaCompraChange,
+      adicionarPagamentoCompra,
+      removerPagamentoCompra,
+      showPagarCompraModal,
+      compraParaPagar,
+      pagandoCompra,
+      pagamentosQuitar,
+      totalPagarAgora,
+      abrirModalPagarCompra,
+      adicionarPagamentoQuitar,
+      removerPagamentoQuitar,
+      confirmarPagamentoCompra,
       buscarFornecedores,
       buscarCompras,
       goToHistorico,
@@ -960,6 +1324,7 @@ export default defineComponent({
       toggleFornecedor,
       nomeFornecedor,
       formatarData,
+      formatarDataHora,
       verDetalhes,
       showCancelarCompraModal,
       compraParaCancelar,
@@ -1311,6 +1676,49 @@ export default defineComponent({
   min-height: 60px;
   resize: vertical;
 }
+
+/* Formas de pagamento na compra */
+.pagamento-compra-row {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+}
+.pagamento-resumo {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+.prazo-box {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 6px;
+  padding: 12px;
+}
+.pagamentos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pagamento-card-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.conferencia-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.conferencia-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
 
 .input-control:disabled {
   opacity: 0.6;

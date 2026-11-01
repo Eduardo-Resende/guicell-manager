@@ -18,11 +18,21 @@ vendasRouter.post('/:id/cancelar', checkPermission('vendas.cancelar'), vendCtrl.
 // Caixa
 const caixaRouter = Router();
 caixaRouter.use(authenticate);
+caixaRouter.get('/formas-pagamento', caixaCtrl.formasPagamento);
+caixaRouter.get('/resumo', checkPermission(['caixa', 'dashboard.faturamento']), caixaCtrl.resumo);
 caixaRouter.get('/resumo-dia', checkPermission(['caixa', 'dashboard.faturamento']), caixaCtrl.resumoDia);
+caixaRouter.get('/abertura-info', checkPermission('caixa.abrir_fechar'), caixaCtrl.infoAbertura);
+caixaRouter.get('/fechamento-previa', checkPermission('caixa.abrir_fechar'), caixaCtrl.previaFechamento);
+caixaRouter.get('/sessoes', checkPermission('caixa.ver'), caixaCtrl.listarSessoes);
+caixaRouter.get('/transferencias', checkPermission('caixa.ver'), caixaCtrl.listarTransferencias);
+caixaRouter.get('/transferencias/:id', checkPermission('caixa.ver'), caixaCtrl.buscarTransferencia);
+caixaRouter.post('/transferencias', checkPermission('caixa.transferir'), caixaCtrl.criarTransferencia);
+caixaRouter.post('/transferencias/:id/cancelar', checkPermission('caixa.transferir'), caixaCtrl.cancelarTransferencia);
 caixaRouter.get('/', checkPermission('caixa.ver'), caixaCtrl.listar);
 caixaRouter.post('/abrir', checkPermission('caixa.abrir_fechar'), caixaCtrl.abrirCaixa);
 caixaRouter.post('/fechar', checkPermission('caixa.abrir_fechar'), caixaCtrl.fecharCaixa);
 caixaRouter.post('/', checkPermission('caixa.movimentar'), caixaCtrl.registrarManual);
+caixaRouter.post('/:id/estornar', checkPermission('caixa.estornar'), caixaCtrl.estornarManual);
 
 // Relatórios
 const relatoriosRouter = Router();
@@ -48,6 +58,7 @@ comprasRouter.use(authenticate);
 comprasRouter.get('/', checkPermission('compras'), comprasCtrl.listar);
 comprasRouter.get('/:id', checkPermission('compras'), comprasCtrl.buscarPorId);
 comprasRouter.post('/', checkPermission('compras.criar'), comprasCtrl.criar);
+comprasRouter.post('/:id/pagar', checkPermission('compras.criar'), comprasCtrl.pagar);
 comprasRouter.post('/:id/cancelar', checkPermission('compras.cancelar'), comprasCtrl.cancelar);
 
 module.exports = { vendasRouter, caixaRouter, relatoriosRouter, usuariosRouter, comprasRouter };

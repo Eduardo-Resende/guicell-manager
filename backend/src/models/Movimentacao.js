@@ -59,6 +59,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       // Unifica: status (vendas/compras) e status_pagamento (OS)
     },
+    valor_pago: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      // Compras: quanto já foi efetivamente pago (compra a prazo/parcial: valor_total - valor_pago fica pendente)
+    },
     observacao: {
       type: DataTypes.TEXT,
       allowNull: true,

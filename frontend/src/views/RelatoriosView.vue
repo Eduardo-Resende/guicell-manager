@@ -208,6 +208,79 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Detalhamento por Forma e Localização -->
+        <div class="grid grid-cols-2 gap-4 mt-6" v-if="caixaReportData.por_forma && caixaReportData.por_forma.length > 0">
+          <div class="card p-4">
+            <h4 class="mb-3">Por Forma de Pagamento</h4>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Forma</th>
+                    <th>Receitas</th>
+                    <th>Despesas</th>
+                    <th class="text-right">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="f in caixaReportData.por_forma" :key="f.codigo">
+                    <td class="font-semibold text-white">{{ f.nome }}</td>
+                    <td class="text-success">R$ {{ f.entradas.toFixed(2) }}</td>
+                    <td class="text-danger">R$ {{ f.saidas.toFixed(2) }}</td>
+                    <td class="text-right font-bold" :class="f.saldo >= 0 ? 'text-success' : 'text-danger'">
+                      R$ {{ f.saldo.toFixed(2) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card p-4">
+            <h4 class="mb-3">Por Conta / Localização</h4>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Conta</th>
+                    <th>Entradas</th>
+                    <th>Saídas</th>
+                    <th class="text-right">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in caixaReportData.por_conta" :key="c.codigo">
+                    <td class="font-semibold text-white">{{ c.nome }}</td>
+                    <td class="text-success">R$ {{ c.entradas.toFixed(2) }}</td>
+                    <td class="text-danger">R$ {{ c.saidas.toFixed(2) }}</td>
+                    <td class="text-right font-bold" :class="c.saldo >= 0 ? 'text-success' : 'text-danger'">
+                      R$ {{ c.saldo.toFixed(2) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloco Outros: Transferências e Ajustes de Conferência -->
+        <div class="card p-4 mt-4" v-if="caixaReportData.outros">
+          <h4 class="mb-2">Movimentações Não-Operacionais no Período</h4>
+          <p class="text-xs text-muted mb-3">Valores que alteram a localização dos recursos ou corrigem conferências físicas, sem distorcer o faturamento real.</p>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="p-3 border rounded" style="border-color: var(--border);">
+              <span class="text-muted block mb-1">Transferências Internas (Gaveta &harr; Cofre):</span>
+              <span class="font-bold text-primary">{{ caixaReportData.outros.transferencias.quantidade }} operações</span>
+              <span class="text-muted ml-2">(Total movimentado: R$ {{ caixaReportData.outros.transferencias.valor.toFixed(2) }})</span>
+            </div>
+            <div class="p-3 border rounded" style="border-color: var(--border);">
+              <span class="text-muted block mb-1">Ajustes de Conferência (Abertura / Fechamento):</span>
+              <span class="text-success font-semibold">Sobras: + R$ {{ caixaReportData.outros.ajustes_conferencia.sobras.toFixed(2) }}</span>
+              <span class="text-danger font-semibold ml-3">Faltas: - R$ {{ caixaReportData.outros.ajustes_conferencia.faltas.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Estoque Report Preview -->

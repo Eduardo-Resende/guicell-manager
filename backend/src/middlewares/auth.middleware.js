@@ -60,7 +60,7 @@ const checkPermission = (chaveOuLista) => async (req, res, next) => {
         return !!(permissoes['dashboard.ver'] || permissoes['dashboard.faturamento']);
       }
       if (chave === 'caixa') {
-        return !!(permissoes['caixa.ver'] || permissoes['caixa.abrir_fechar'] || permissoes['caixa.movimentar']);
+        return !!(permissoes['caixa.ver'] || permissoes['caixa.abrir_fechar'] || permissoes['caixa.movimentar'] || permissoes['caixa.transferir'] || permissoes['caixa.estornar'] || permissoes['caixa.aprovar']);
       }
       if (chave === 'estoque') {
         return !!(permissoes['estoque.ver'] || permissoes['estoque.criar_editar'] || permissoes['estoque.ajustar'] || permissoes['estoque.categorias']);

@@ -1,7 +1,10 @@
 'use strict';
 
-const { Movimentacao, ItemMovimentacao, Produto, Fornecedor, Caixa, Usuario, LogAuditoria, sequelize } = require('../models');
+const { Movimentacao, ItemMovimentacao, Produto, Fornecedor, Usuario, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const fin = require('../services/financeiro.service');
+
+const { ErroNegocio } = fin;
 
 const compraIncludes = [
   { model: Fornecedor, as: 'fornecedor', attributes: ['id_fornecedor', 'nome'] },
@@ -11,6 +14,37 @@ const compraIncludes = [
     include: [{ model: Produto, as: 'produto', attributes: ['id_produto', 'descricao'] }],
   },
 ];
+
+const podeAutorizarExcecao = (req) => !!(req.body?.autorizar_saldo_negativo && req.usuario?.permissoes?.['caixa.aprovar']);
+
+/** Valor ainda não pago de uma compra (0 quando cancelada). */
+const valorPendente = (compra) => {
+  if (compra.status_pagamento === 'cancelado') return 0;
+  const total = fin.paraCentavos(compra.valor_total);
+  const pago = compra.valor_pago === null || compra.valor_pago === undefined ? total : fin.paraCentavos(compra.valor_pago);
+  return fin.deCentavos(Math.max(total - pago, 0));
+};
+
+/** Enriquece as compras com os pagamentos efetivos (por forma/conta) e o valor pendente. */
+const comPagamentos = async (compras) => {
+  const mapa = await fin.pagamentosPorMovimentacoes(compras.map((c) => c.id_movimentacao));
+  return compras.map((c) => {
+    const json = c.toJSON();
+    return {
+      ...json,
+      valor_pendente: valorPendente(json),
+      pagamentos_caixa: mapa[c.id_movimentacao] || [],
+    };
+  });
+};
+
+const nomeDoFornecedor = async (compra, transaction) => {
+  if (compra.id_fornecedor) {
+    const f = await Fornecedor.findByPk(compra.id_fornecedor, { attributes: ['nome'], transaction });
+    if (f) return f.nome;
+  }
+  return compra.nome_fornecedor_avulso || 'Fornecedor';
+};
 
 // ─── Listar ───────────────────────────────────────────────────────────────────
 const listar = async (req, res) => {
@@ -24,10 +58,9 @@ const listar = async (req, res) => {
       if (data_fim)    where.data_movimentacao[Op.lte] = new Date(data_fim + 'T23:59:59');
     }
     const compras = await Movimentacao.findAll({ where, include: compraIncludes, order: [['data_movimentacao', 'DESC']] });
-    return res.json(compras);
+    return res.json(await comPagamentos(compras));
   } catch (err) {
-    console.error('[Compras] Erro ao listar:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
+    return fin.responderErro(res, err, 'Compras/listar');
   }
 };
 
@@ -36,23 +69,47 @@ const buscarPorId = async (req, res) => {
   try {
     const compra = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'compra' }, include: compraIncludes });
     if (!compra) return res.status(404).json({ error: 'Compra não encontrada.' });
-    return res.json(compra);
+    const [completa] = await comPagamentos([compra]);
+    return res.json(completa);
   } catch (err) {
-    return res.status(500).json({ error: 'Erro interno.' });
+    return fin.responderErro(res, err, 'Compras/buscar');
   }
 };
 
 // ─── Criar ────────────────────────────────────────────────────────────────────
+// Pagamento: `pagamentos: [{ forma, conta, valor }]` — uma ou várias formas; cada uma sai da conta informada.
+//  • soma == total  → compra paga;
+//  • soma <  total  → compra parcial: só o valor efetivamente pago sai do caixa, o restante fica PENDENTE;
+//  • `a_prazo: true` sem pagamentos → compra totalmente pendente (nenhuma saída financeira).
 const criar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { id_fornecedor, nome_fornecedor_avulso, data_compra, itens, observacao } = req.body;
+    const { id_fornecedor, nome_fornecedor_avulso, data_compra, itens, observacao, pagamentos, a_prazo } = req.body;
 
     if (!data_compra)                              { await t.rollback(); return res.status(400).json({ error: 'Data da compra é obrigatória.' }); }
     if (!itens || itens.length === 0)              { await t.rollback(); return res.status(400).json({ error: 'Informe ao menos um item na compra.' }); }
     if (!id_fornecedor && !nome_fornecedor_avulso) { await t.rollback(); return res.status(400).json({ error: 'Informe um fornecedor ou nome avulso.' }); }
 
-    const valorTotal = itens.reduce((acc, item) => acc + (parseFloat(item.valor_custo_unitario) * parseInt(item.quantidade)), 0);
+    const totalCent = itens.reduce((acc, item) => acc + fin.paraCentavos(item.valor_custo_unitario) * parseInt(item.quantidade, 10), 0);
+    if (!Number.isFinite(totalCent) || totalCent <= 0) throw new ErroNegocio('O valor total da compra deve ser maior que zero.', 400);
+    const valorTotal = fin.deCentavos(totalCent);
+
+    // Pagamentos: validados antes de gravar qualquer coisa
+    const temPagamentos = Array.isArray(pagamentos) && pagamentos.length > 0;
+    if (!temPagamentos && a_prazo !== true) {
+      throw new ErroNegocio('Informe a forma de pagamento da compra ou marque-a como "a prazo / pagar depois".', 400, 'PAGAMENTO_OBRIGATORIO');
+    }
+    let pernas = [];
+    if (temPagamentos) {
+      pernas = fin.resolverPagamentos(pagamentos, await fin.carregarCadastros(t), { exigirConta: true });
+      if (fin.somaCentavos(pernas) > totalCent) {
+        throw new ErroNegocio(
+          `O total pago (${fin.formatarMoeda(fin.somaCentavos(pernas))}) não pode ser maior que o valor da compra (${fin.formatarMoeda(totalCent)}).`,
+          422, 'SOMA_DIVERGENTE'
+        );
+      }
+    }
+    const pagoCent = fin.somaCentavos(pernas);
 
     const compra = await Movimentacao.create({
       origem:                   'compra',
@@ -60,7 +117,9 @@ const criar = async (req, res) => {
       nome_fornecedor_avulso:   nome_fornecedor_avulso || null,
       data_movimentacao:        new Date(`${data_compra}T12:00:00`),
       valor_total:              valorTotal,
-      status_pagamento:         'pago',
+      valor_pago:               fin.deCentavos(pagoCent),
+      forma_pagamento:          pernas.length ? fin.rotuloFormas(pernas) : null,
+      status_pagamento:         pagoCent === totalCent ? 'pago' : 'pendente',
       observacao:               observacao || null,
       id_usuario:               req.usuario.id_usuario,
     }, { transaction: t });
@@ -97,28 +156,87 @@ const criar = async (req, res) => {
       }, { transaction: t });
     }
 
-    const nomeFornecedor = id_fornecedor
-      ? (await Fornecedor.findByPk(id_fornecedor, { transaction: t }))?.nome || 'Fornecedor'
-      : (nome_fornecedor_avulso || 'Avulso');
-
-    await Caixa.create({
-      id_usuario:      req.usuario.id_usuario,
-      data:            new Date(`${data_compra}T12:00:00`),
-      tipo:            'saida',
-      valor:           valorTotal,
-      descricao:       `Compra #${compra.id_movimentacao} - ${nomeFornecedor}`,
-      categoria:       'Compra',
-      id_movimentacao: compra.id_movimentacao,
-    }, { transaction: t });
+    // Somente o que foi efetivamente pago gera saída financeira (uma operação, várias pernas)
+    if (pernas.length) {
+      await fin.registrarLancamento({
+        tipo:            'saida',
+        descricao:       `Compra #${compra.id_movimentacao} - ${await nomeDoFornecedor(compra, t)}`,
+        categoria:       'Compra',
+        origem:          'compra',
+        favorecido:      await nomeDoFornecedor(compra, t),
+        id_usuario:      req.usuario.id_usuario,
+        id_movimentacao: compra.id_movimentacao,
+        pagamentos:      fin.pernasParaPagamentos(pernas),
+        valorTotal:      fin.deCentavos(pagoCent),
+        permitirNegativo: podeAutorizarExcecao(req),
+        ip:              req.ip,
+        transaction:     t,
+      });
+    }
 
     await t.commit();
 
     const compraCompleta = await Movimentacao.findOne({ where: { id_movimentacao: compra.id_movimentacao }, include: compraIncludes });
-    return res.status(201).json(compraCompleta);
+    const [completa] = await comPagamentos([compraCompleta]);
+    return res.status(201).json(completa);
   } catch (err) {
-    await t.rollback();
-    console.error('[Compras] Erro ao criar:', err);
-    return res.status(500).json({ error: 'Erro interno ao registrar compra.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Compras/criar', 'Erro interno ao registrar compra.');
+  }
+};
+
+// ─── Pagar (total ou parcialmente) uma compra pendente ───────────────────────
+const pagar = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { pagamentos } = req.body;
+    const compra = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'compra' }, transaction: t, lock: t.LOCK.UPDATE });
+    if (!compra) throw new ErroNegocio('Compra não encontrada.', 404);
+    if (compra.status_pagamento === 'cancelado') throw new ErroNegocio('Esta compra está cancelada.', 409, 'COMPRA_CANCELADA');
+    if (compra.status_pagamento === 'pago') throw new ErroNegocio('Esta compra já está totalmente paga.', 409, 'COMPRA_PAGA');
+
+    const pernas = fin.resolverPagamentos(pagamentos, await fin.carregarCadastros(t), { exigirConta: true });
+    const pagoAgoraCent = fin.somaCentavos(pernas);
+    const pendenteCent = fin.paraCentavos(compra.valor_total) - fin.paraCentavos(compra.valor_pago || 0);
+    if (pagoAgoraCent > pendenteCent) {
+      throw new ErroNegocio(
+        `O valor informado (${fin.formatarMoeda(pagoAgoraCent)}) é maior que o saldo pendente da compra (${fin.formatarMoeda(pendenteCent)}).`,
+        422, 'SOMA_DIVERGENTE'
+      );
+    }
+
+    const nome = await nomeDoFornecedor(compra, t);
+    await fin.registrarLancamento({
+      tipo:            'saida',
+      descricao:       `Pagamento Compra #${compra.id_movimentacao} - ${nome}`,
+      categoria:       'Compra',
+      origem:          'compra',
+      favorecido:      nome,
+      id_usuario:      req.usuario.id_usuario,
+      id_movimentacao: compra.id_movimentacao,
+      pagamentos:      fin.pernasParaPagamentos(pernas),
+      valorTotal:      fin.deCentavos(pagoAgoraCent),
+      permitirNegativo: podeAutorizarExcecao(req),
+      ip:              req.ip,
+      transaction:     t,
+    });
+
+    const novoPagoCent = fin.paraCentavos(compra.valor_pago || 0) + pagoAgoraCent;
+    const rotuloNovo = fin.rotuloFormas(pernas);
+    await compra.update({
+      valor_pago: fin.deCentavos(novoPagoCent),
+      status_pagamento: novoPagoCent === fin.paraCentavos(compra.valor_total) ? 'pago' : 'pendente',
+      forma_pagamento: !compra.forma_pagamento || compra.forma_pagamento === rotuloNovo ? rotuloNovo : 'Dividido',
+    }, { transaction: t });
+
+    await t.commit();
+
+    const atualizada = await Movimentacao.findOne({ where: { id_movimentacao: compra.id_movimentacao }, include: compraIncludes });
+    const [completa] = await comPagamentos([atualizada]);
+    return res.json(completa);
+  } catch (err) {
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Compras/pagar', 'Erro interno ao registrar pagamento.');
   }
 };
 
@@ -131,6 +249,9 @@ const cancelar = async (req, res) => {
       await t.rollback();
       return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
     }
+
+    // Trava a compra para que dois cancelamentos simultâneos não estornem o caixa duas vezes
+    await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'compra' }, transaction: t, lock: t.LOCK.UPDATE });
 
     const compra = await Movimentacao.findOne({
       where: { id_movimentacao: req.params.id, origem: 'compra' },
@@ -192,20 +313,16 @@ const cancelar = async (req, res) => {
       { transaction: t }
     );
 
-    // 4. Lançar entrada de estorno no Caixa
+    // 4. Estornar no Caixa tudo o que foi efetivamente pago, com as mesmas formas e contas dos pagamentos originais.
+    //    Compra a prazo/sem pagamento não tem o que estornar (nada saiu do caixa).
     const nomeFornecedor = compra.fornecedor?.nome || compra.nome_fornecedor_avulso || 'Fornecedor';
-    await Caixa.create(
-      {
-        id_usuario:      req.usuario.id_usuario,
-        data:            new Date(),
-        tipo:            'entrada',
-        valor:           parseFloat(compra.valor_total),
-        descricao:       `Cancelamento Compra #${compra.id_movimentacao} (${nomeFornecedor}) — Motivo: ${motivoLimpo}`.slice(0, 200),
-        categoria:       'Compra',
-        id_movimentacao: compra.id_movimentacao,
-      },
-      { transaction: t }
-    );
+    await fin.estornarPorMovimentacao(compra.id_movimentacao, {
+      id_usuario:  req.usuario.id_usuario,
+      descricao:   `Cancelamento Compra #${compra.id_movimentacao} (${nomeFornecedor}) — Motivo: ${motivoLimpo}`,
+      permitirNegativo: podeAutorizarExcecao(req),
+      ip:          req.ip,
+      transaction: t,
+    });
 
     // 5. Registrar log de auditoria
     if (LogAuditoria) {
@@ -225,16 +342,16 @@ const cancelar = async (req, res) => {
 
     await t.commit();
 
-    const compraCompleta = await Movimentacao.findOne({
+    const compraAtualizada = await Movimentacao.findOne({
       where: { id_movimentacao: compra.id_movimentacao },
       include: compraIncludes,
     });
-    return res.json(compraCompleta);
+    const [completa] = await comPagamentos([compraAtualizada]);
+    return res.json(completa);
   } catch (err) {
-    await t.rollback();
-    console.error('[Compras] Erro ao cancelar:', err);
-    return res.status(500).json({ error: 'Erro interno ao cancelar compra.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'Compras/cancelar', 'Erro interno ao cancelar compra.');
   }
 };
 
-module.exports = { listar, buscarPorId, criar, cancelar };
+module.exports = { listar, buscarPorId, criar, pagar, cancelar };

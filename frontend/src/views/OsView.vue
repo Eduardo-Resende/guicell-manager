@@ -470,8 +470,9 @@
               <select v-model="selectedOS.formaPagamento" class="input-control select-control" :disabled="isClosed || !$pode('os.status')">
                 <option value="">Selecione a Forma de Pagamento...</option>
                 <option value="Dinheiro">Dinheiro</option>
-                <option value="Cartão">Cartão de Crédito/Débito</option>
                 <option value="PIX">PIX</option>
+                <option value="Cartão de débito">Cartão de débito</option>
+                <option value="Cartão de crédito">Cartão de crédito</option>
                 <option value="Fiado">Fiado (Receber Depois)</option>
               </select>
             </div>
@@ -518,8 +519,9 @@
           <select v-model="formaPagamentoOs" class="input-control select-control">
             <option value="">Selecione...</option>
             <option value="Dinheiro">Dinheiro</option>
-            <option value="Cartão">Cartão de Crédito/Débito</option>
             <option value="PIX">PIX</option>
+            <option value="Cartão de débito">Cartão de débito</option>
+            <option value="Cartão de crédito">Cartão de crédito</option>
           </select>
         </div>
       </div>

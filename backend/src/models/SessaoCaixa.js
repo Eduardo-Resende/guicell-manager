@@ -6,6 +6,8 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       SessaoCaixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario_abertura', as: 'usuarioAbertura' });
       SessaoCaixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario_fechamento', as: 'usuarioFechamento' });
+      SessaoCaixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario_autorizador_abertura', as: 'autorizadorAbertura' });
+      SessaoCaixa.belongsTo(models.Usuario, { foreignKey: 'id_usuario_autorizador_fechamento', as: 'autorizadorFechamento' });
       SessaoCaixa.hasMany(models.Caixa, { foreignKey: 'id_sessao', as: 'movimentacoes' });
     }
   }
@@ -60,6 +62,30 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+
+    // ── Conferência da abertura (esperado = valor contado no fechamento anterior) ──
+    valor_esperado_abertura: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    diferenca_abertura:      { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+    justificativa_abertura:  { type: DataTypes.TEXT, allowNull: true },
+    id_usuario_autorizador_abertura: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'usuarios', key: 'id_usuario' },
+    },
+    // true na primeiríssima abertura do sistema: o valor contado vira o saldo inicial da gaveta
+    abertura_inicial: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+
+    // ── Conferência do fechamento ──
+    justificativa_fechamento: { type: DataTypes.TEXT, allowNull: true },
+    id_usuario_autorizador_fechamento: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'usuarios', key: 'id_usuario' },
+    },
+
+    // 1 enquanto a sessão está aberta, NULL quando fechada. O índice UNIQUE no banco garante
+    // que nunca existam duas sessões abertas ao mesmo tempo.
+    trava_aberta: { type: DataTypes.TINYINT, allowNull: true },
   }, {
     sequelize,
     modelName: 'SessaoCaixa',

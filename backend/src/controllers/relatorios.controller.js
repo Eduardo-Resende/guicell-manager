@@ -1,7 +1,8 @@
 'use strict';
 
 const { Movimentacao, ItemMovimentacao, Caixa, Produto, Categoria, Cliente, Aparelho, Usuario, sequelize } = require('../models');
-const { Op } = require('sequelize');
+const { Op, QueryTypes } = require('sequelize');
+const fin = require('../services/financeiro.service');
 
 const getPeriodo = (data_inicio, data_fim) => {
   const hoje = new Date();
@@ -89,24 +90,84 @@ const relatorioVendas = async (req, res) => {
 };
 
 // RF11: Relatório de fluxo de caixa por período
+// Receitas e despesas = lançamentos operacionais. Transferências, ajustes de conferência e aberturas/fechamentos
+// têm tratamento próprio (bloco "outros") e nunca entram nos totais de receitas/despesas.
 const relatorioCaixa = async (req, res) => {
   try {
     const { data_inicio, data_fim } = req.query;
-    const where = {
-      data: getPeriodo(data_inicio, data_fim),
-      categoria: { [Op.notIn]: ['Abertura de Caixa', 'Fechamento de Caixa'] },
-    };
-    const movimentacoes = await Caixa.findAll({ where, order: [['data', 'DESC'], ['id_caixa', 'DESC']] });
-    const totais = await Caixa.findAll({
+    const periodo = getPeriodo(data_inicio, data_fim);
+    const [inicio, fim] = periodo[Op.between];
+    const where = { data: periodo, natureza: 'operacional' };
+
+    const lancamentos = await Caixa.findAll({
+      where,
+      include: [{ model: Usuario, as: 'usuario', attributes: ['id_usuario', 'nome'] }, ...fin.INCLUDE_PERNAS],
+      order: [['data', 'DESC'], ['id_caixa', 'DESC']],
+    });
+    const estornados = await fin.marcarEstornados(lancamentos);
+    const movimentacoes = lancamentos.map((l) => fin.serializarLancamento(l, estornados));
+
+    const totaisBrutos = await Caixa.findAll({
       where,
       attributes: ['tipo', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
       group: ['tipo'],
       raw: true,
     });
-    const entradas = parseFloat(totais.find(t => t.tipo === 'entrada')?.total || 0);
-    const saidas   = parseFloat(totais.find(t => t.tipo === 'saida')?.total   || 0);
-    return res.json({ movimentacoes, totais: { entradas, saidas, saldo: entradas - saidas } });
+    const entradas = parseFloat(totaisBrutos.find(t => t.tipo === 'entrada')?.total || 0);
+    const saidas   = parseFloat(totaisBrutos.find(t => t.tipo === 'saida')?.total   || 0);
+
+    const agrupar = async (campoCodigo, campoNome, tabela, chave) => {
+      const linhas = await sequelize.query(
+        `SELECT x.${campoCodigo} AS codigo, x.${campoNome} AS nome, p.tipo AS tipo, SUM(p.valor) AS total
+           FROM caixa_pagamentos p
+           JOIN caixa c ON c.id_caixa = p.id_caixa
+           JOIN ${tabela} x ON x.${chave} = p.${chave}
+          WHERE c.natureza = 'operacional' AND c.data BETWEEN :inicio AND :fim
+          GROUP BY x.${campoCodigo}, x.${campoNome}, p.tipo`,
+        { replacements: { inicio, fim }, type: QueryTypes.SELECT }
+      );
+      const mapa = {};
+      linhas.forEach((l) => {
+        mapa[l.codigo] = mapa[l.codigo] || { codigo: l.codigo, nome: l.nome, entradas: 0, saidas: 0, saldo: 0 };
+        mapa[l.codigo][l.tipo === 'entrada' ? 'entradas' : 'saidas'] = parseFloat(l.total);
+        mapa[l.codigo].saldo = mapa[l.codigo].entradas - mapa[l.codigo].saidas;
+      });
+      return Object.values(mapa);
+    };
+
+    const [porForma, porConta, transferencias, ajustes] = await Promise.all([
+      agrupar('codigo', 'nome', 'formas_pagamento', 'id_forma'),
+      agrupar('codigo', 'nome', 'contas_financeiras', 'id_conta'),
+      sequelize.query(
+        `SELECT COUNT(*) AS quantidade, COALESCE(SUM(valor), 0) AS valor
+           FROM caixa WHERE natureza = 'transferencia' AND tipo = 'entrada' AND data BETWEEN :inicio AND :fim`,
+        { replacements: { inicio, fim }, type: QueryTypes.SELECT }
+      ),
+      sequelize.query(
+        `SELECT tipo, COUNT(*) AS quantidade, COALESCE(SUM(valor), 0) AS valor
+           FROM caixa WHERE natureza = 'ajuste_conferencia' AND data BETWEEN :inicio AND :fim GROUP BY tipo`,
+        { replacements: { inicio, fim }, type: QueryTypes.SELECT }
+      ),
+    ]);
+    const sobras = ajustes.find(a => a.tipo === 'entrada');
+    const faltas = ajustes.find(a => a.tipo === 'saida');
+
+    return res.json({
+      movimentacoes,
+      totais: { entradas, saidas, saldo: entradas - saidas },
+      por_forma: porForma,
+      por_conta: porConta,
+      outros: {
+        transferencias: { quantidade: Number(transferencias[0].quantidade), valor: parseFloat(transferencias[0].valor) },
+        ajustes_conferencia: {
+          sobras: parseFloat(sobras?.valor || 0),
+          faltas: parseFloat(faltas?.valor || 0),
+          quantidade: Number(sobras?.quantidade || 0) + Number(faltas?.quantidade || 0),
+        },
+      },
+    });
   } catch (err) {
+    console.error('[Relatórios] Erro Caixa:', err);
     return res.status(500).json({ error: 'Erro interno.' });
   }
 };

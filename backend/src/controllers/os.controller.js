@@ -2,6 +2,14 @@
 
 const { Movimentacao, ItemMovimentacao, Cliente, Aparelho, Usuario, Produto, Caixa, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const fin = require('../services/financeiro.service');
+
+/** Nome do cliente, usado como "favorecido/origem" do lançamento financeiro. */
+const nomeCliente = async (id_cliente, transaction) => {
+  if (!id_cliente) return null;
+  const cliente = await Cliente.findByPk(id_cliente, { attributes: ['nome'], transaction });
+  return cliente ? cliente.nome : null;
+};
 
 // Includes padrão de uma OS
 const osIncludes = [
@@ -186,15 +194,17 @@ const atualizarStatus = async (req, res) => {
 };
 
 // ─── Fechar OS ────────────────────────────────────────────────────────────────
+// Pagamento: `forma_pagamento` (única) ou `pagamentos: [{ forma, valor }]` (dividido). A soma deve fechar o valor final.
 const fechar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { valor_final, forma_pagamento, itens, prazo_estimado } = req.body;
-    if (valor_final === undefined || !forma_pagamento) {
+    const { valor_final, forma_pagamento, pagamentos, itens, prazo_estimado } = req.body;
+    const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
+    if (valor_final === undefined || (!forma_pagamento && !dividido)) {
       await t.rollback(); return res.status(400).json({ error: 'Valor final e forma de pagamento são obrigatórios.' });
     }
 
-    const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t });
+    const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t, lock: t.LOCK.UPDATE });
     if (!os) { await t.rollback(); return res.status(404).json({ error: 'OS não encontrada.' }); }
     if (['Entregue', 'Cancelado'].includes(os.status_os)) {
       await t.rollback(); return res.status(400).json({ error: 'OS já finalizada.' });
@@ -205,11 +215,15 @@ const fechar = async (req, res) => {
       catch (error) { await t.rollback(); return res.status(400).json({ error: error.message }); }
     }
 
-    const isFiado = forma_pagamento === 'Fiado';
+    const isFiado = !dividido && forma_pagamento === 'Fiado';
+    const pagamento = isFiado
+      ? null
+      : fin.pagamentosDaOperacao({ pagamentos, forma_pagamento, valorTotal: valor_final }, await fin.carregarCadastros(t));
+
     const updatePayload = {
       status_os: 'Entregue',
       valor_total: valor_final,
-      forma_pagamento,
+      forma_pagamento: isFiado ? 'Fiado' : pagamento.rotulo,
       data_fechamento: new Date(),
       status_pagamento: isFiado ? 'pendente' : 'pago',
     };
@@ -218,19 +232,25 @@ const fechar = async (req, res) => {
     await os.update(updatePayload, { transaction: t });
 
     if (!isFiado) {
-      const caixaExistente = await Caixa.findOne({ where: { id_movimentacao: os.id_movimentacao }, transaction: t });
-      if (caixaExistente) {
-        await caixaExistente.update({ valor: valor_final, id_usuario: req.usuario.id_usuario }, { transaction: t });
-      } else {
-        await Caixa.create({
-          id_usuario: req.usuario.id_usuario,
-          data: new Date(),
+      // Trava contra duplicidade: lançamentos efetivados são imutáveis, então nunca se cria um segundo recebimento da mesma OS
+      const jaLancada = await Caixa.findOne({
+        where: { id_movimentacao: os.id_movimentacao, natureza: 'operacional', id_lancamento_origem: null },
+        transaction: t,
+      });
+      if (!jaLancada) {
+        await fin.registrarLancamento({
           tipo: 'entrada',
-          valor: valor_final,
           descricao: `Fechamento da OS ${os.numero_os}`,
           categoria: 'OS',
+          origem: 'os',
+          favorecido: await nomeCliente(os.id_cliente, t),
+          id_usuario: req.usuario.id_usuario,
           id_movimentacao: os.id_movimentacao,
-        }, { transaction: t });
+          pagamentos: fin.pernasParaPagamentos(pagamento.pernas),
+          valorTotal: valor_final,
+          ip: req.ip,
+          transaction: t,
+        });
       }
     }
 
@@ -238,9 +258,8 @@ const fechar = async (req, res) => {
     const updatedOS = await Movimentacao.findOne({ where: { id_movimentacao: os.id_movimentacao }, include: osIncludes });
     return res.json({ message: 'OS fechada com sucesso.', os: updatedOS });
   } catch (err) {
-    await t.rollback();
-    console.error('[OS] Erro ao fechar:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'OS/fechar');
   }
 };
 
@@ -271,34 +290,43 @@ const listarOsPendentes = async (req, res) => {
 const pagarOsFiado = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { forma_pagamento } = req.body;
-    if (!forma_pagamento || forma_pagamento === 'Fiado') {
+    const { forma_pagamento, pagamentos } = req.body;
+    const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
+    if (!dividido && (!forma_pagamento || forma_pagamento === 'Fiado')) {
       await t.rollback(); return res.status(400).json({ error: 'Informe uma forma de pagamento válida (não pode ser Fiado).' });
     }
 
-    const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t });
+    const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t, lock: t.LOCK.UPDATE });
     if (!os) { await t.rollback(); return res.status(404).json({ error: 'OS não encontrada.' }); }
     if (os.status_pagamento !== 'pendente') {
       await t.rollback(); return res.status(400).json({ error: 'Esta OS já foi paga.' });
     }
 
-    await os.update({ status_pagamento: 'pago', forma_pagamento }, { transaction: t });
-    await Caixa.create({
-      id_usuario: req.usuario.id_usuario,
-      data: new Date(),
+    const pagamento = fin.pagamentosDaOperacao(
+      { pagamentos, forma_pagamento, valorTotal: parseFloat(os.valor_total) },
+      await fin.carregarCadastros(t)
+    );
+
+    await os.update({ status_pagamento: 'pago', forma_pagamento: pagamento.rotulo }, { transaction: t });
+    await fin.registrarLancamento({
       tipo: 'entrada',
-      valor: parseFloat(os.valor_total),
       descricao: `Recebimento OS ${os.numero_os} (Fiado)`,
       categoria: 'OS',
+      origem: 'os',
+      favorecido: await nomeCliente(os.id_cliente, t),
+      id_usuario: req.usuario.id_usuario,
       id_movimentacao: os.id_movimentacao,
-    }, { transaction: t });
+      pagamentos: fin.pernasParaPagamentos(pagamento.pernas),
+      valorTotal: parseFloat(os.valor_total),
+      ip: req.ip,
+      transaction: t,
+    });
 
     await t.commit();
     return res.json({ message: 'Pagamento registrado com sucesso.', os });
   } catch (err) {
-    await t.rollback();
-    console.error('[OS] Erro ao pagar fiado:', err);
-    return res.status(500).json({ error: 'Erro interno.' });
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'OS/pagarFiado');
   }
 };
 
@@ -321,8 +349,10 @@ const dashboard = async (req, res) => {
       }),
     ]);
 
+    // Caixa do dia: apenas receitas/despesas operacionais. Transferências, conferências e aberturas/fechamentos
+    // não são receita nem despesa e ficam fora desse indicador.
     const caixaHoje = await Caixa.findAll({
-      where: { data: { [Op.between]: [inicioDia, fimDia] } },
+      where: { natureza: 'operacional', data: { [Op.between]: [inicioDia, fimDia] } },
       attributes: ['tipo', [sequelize.fn('SUM', sequelize.col('valor')), 'total']],
       group: ['tipo'],
       raw: true,
