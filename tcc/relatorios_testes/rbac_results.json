@@ -1,0 +1,101 @@
+[
+  {
+    "id": 1,
+    "cenario": "Acesso à rota protegida de usuários sem token",
+    "endpoint": "GET /api/usuarios",
+    "statusEsperado": 401,
+    "statusObtido": 401,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado. Token não fornecido."
+  },
+  {
+    "id": 2,
+    "cenario": "Acesso à rota protegida de clientes sem token",
+    "endpoint": "GET /api/clientes",
+    "statusEsperado": 401,
+    "statusObtido": 401,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado. Token não fornecido."
+  },
+  {
+    "id": 3,
+    "cenario": "Acesso com token JWT inválido/adulterado",
+    "endpoint": "GET /api/usuarios",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Token inválido ou expirado."
+  },
+  {
+    "id": 4,
+    "cenario": "Atendente tentando acessar listagem de usuários (requer usuarios.gerenciar)",
+    "endpoint": "GET /api/usuarios",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (usuarios.gerenciar) para realizar esta operação."
+  },
+  {
+    "id": 5,
+    "cenario": "Atendente tentando acessar matriz de permissões (requer permissoes.configurar)",
+    "endpoint": "GET /api/permissoes/matriz",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (permissoes.configurar) para realizar esta operação."
+  },
+  {
+    "id": 6,
+    "cenario": "Atendente tentando transferir caixa sem permissão caixa.transferir",
+    "endpoint": "POST /api/caixa/transferencias",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (caixa.transferir) para realizar esta operação."
+  },
+  {
+    "id": 7,
+    "cenario": "Técnico tentando criar venda sem permissão vendas.criar",
+    "endpoint": "POST /api/vendas",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (vendas.criar) para realizar esta operação."
+  },
+  {
+    "id": 8,
+    "cenario": "Atendente tentando acessar relatório financeiro de caixa (requer relatorios.caixa)",
+    "endpoint": "GET /api/relatorios/caixa",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (relatorios.caixa) para realizar esta operação."
+  },
+  {
+    "id": 9,
+    "cenario": "Tentativa de burlar frontend via Postman/DevTools para criar Gerente com token de Atendente",
+    "endpoint": "POST /api/usuarios",
+    "statusEsperado": 403,
+    "statusObtido": 403,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": "Acesso negado: Você não possui permissão (usuarios.gerenciar) para realizar esta operação."
+  },
+  {
+    "id": 10,
+    "cenario": "Gerente acessando listagem de usuários (autorizado)",
+    "endpoint": "GET /api/usuarios",
+    "statusEsperado": 200,
+    "statusObtido": 200,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": ""
+  },
+  {
+    "id": 11,
+    "cenario": "Gerente acessando matriz de permissões (autorizado)",
+    "endpoint": "GET /api/permissoes/matriz",
+    "statusEsperado": 200,
+    "statusObtido": 200,
+    "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
+    "detalhes": ""
+  }
+]

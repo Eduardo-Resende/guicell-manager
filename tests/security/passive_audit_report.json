@@ -1,0 +1,59 @@
+{
+  "headers": [
+    {
+      "item": "Header: x-content-type-options",
+      "presente": "Sim",
+      "valor": "nosniff",
+      "risco": "Baixo",
+      "observacao": "Configurado via Helmet"
+    },
+    {
+      "item": "Header: x-frame-options",
+      "presente": "Sim",
+      "valor": "SAMEORIGIN",
+      "risco": "Médio",
+      "observacao": "Configurado via Helmet"
+    },
+    {
+      "item": "Header: strict-transport-security",
+      "presente": "Sim",
+      "valor": "max-age=15552000; includeSubDomains",
+      "risco": "Médio",
+      "observacao": "O HSTS é aplicado tipicamente em produção com terminação HTTPS/Reverse Proxy Nginx"
+    },
+    {
+      "item": "Header: content-security-policy",
+      "presente": "Sim",
+      "valor": "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
+      "risco": "Médio",
+      "observacao": "Configurado via Helmet"
+    },
+    {
+      "item": "Header: referrer-policy",
+      "presente": "Sim",
+      "valor": "no-referrer",
+      "risco": "Baixo",
+      "observacao": "Configurado via Helmet"
+    },
+    {
+      "item": "Header: x-xss-protection",
+      "presente": "Sim",
+      "valor": "0",
+      "risco": "Informativo",
+      "observacao": "Configurado via Helmet"
+    },
+    {
+      "item": "Header: x-powered-by",
+      "presente": "Não",
+      "valor": "Não definido",
+      "risco": "Baixo",
+      "observacao": "Não enviado na resposta padrão"
+    }
+  ],
+  "xPoweredByHidden": true,
+  "corsBlockedUnauthorized": true,
+  "corsAllowedLegitimate": true,
+  "infoLeak404": false,
+  "passwordLeak": false,
+  "authMethod": "Stateless Bearer JWT via Authorization Header (imune a ataques de CSRF padrão baseados em cookie)"
+}
