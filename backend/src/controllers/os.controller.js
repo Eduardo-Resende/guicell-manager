@@ -151,7 +151,12 @@ const atualizarStatus = async (req, res) => {
       await t.rollback(); return res.status(400).json({ error: 'Status inválido.' });
     }
     if (os.status_os === 'Entregue' && status !== 'Entregue') {
-      await t.rollback(); return res.status(400).json({ error: 'Não é possível alterar uma OS já entregue.' });
+      await t.rollback();
+      return res.status(400).json({
+        error: status === 'Cancelado'
+          ? 'Para cancelar uma OS já entregue, utilize a opção de cancelamento de OS informando a justificativa.'
+          : 'Não é possível alterar uma OS já entregue.',
+      });
     }
 
     const perms = req.usuario?.permissoes || {};
@@ -182,6 +187,23 @@ const atualizarStatus = async (req, res) => {
     if (forma_pagamento !== undefined) {
       payload.forma_pagamento  = forma_pagamento;
       payload.status_pagamento = forma_pagamento === 'Fiado' ? 'pendente' : 'pago';
+    }
+
+    if (status === 'Cancelado') {
+      const motivo = req.body?.motivo;
+      if (!motivo || !String(motivo).trim()) {
+        await t.rollback();
+        return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
+      }
+      payload.status_pagamento = 'cancelado';
+      payload.motivo_cancelamento = String(motivo).trim();
+      const itensExistentes = await ItemMovimentacao.findAll({ where: { id_movimentacao: os.id_movimentacao }, transaction: t });
+      for (const item of itensExistentes) {
+        const prod = await Produto.findByPk(item.id_produto, { transaction: t });
+        if (prod) {
+          await prod.update({ estoque_atual: prod.estoque_atual + parseInt(item.quantidade, 10) }, { transaction: t });
+        }
+      }
     }
 
     if (status === 'Cancelado' && LogAuditoria) {
@@ -361,6 +383,101 @@ const pagarOsFiado = async (req, res) => {
   }
 };
 
+// ─── Cancelar OS ─────────────────────────────────────────────────────────────
+const cancelar = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const { motivo } = req.body;
+    if (!motivo || !String(motivo).trim()) {
+      await t.rollback();
+      return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
+    }
+
+    const os = await Movimentacao.findOne({
+      where: { id_movimentacao: req.params.id, origem: 'os' },
+      include: [{ model: ItemMovimentacao, as: 'itens' }],
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+
+    if (!os) {
+      await t.rollback();
+      return res.status(404).json({ error: 'Ordem de Serviço não encontrada.' });
+    }
+
+    if (os.status_os === 'Cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Esta Ordem de Serviço já está cancelada.' });
+    }
+
+    const perms = req.usuario?.permissoes || {};
+    if (!perms['os.excluir']) {
+      await t.rollback();
+      return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para cancelar Ordens de Serviço (os.excluir).' });
+    }
+
+    const dadosAnteriores = os.toJSON();
+    const motivoLimpo = String(motivo).trim();
+
+    // 1. Devolver peças e componentes utilizados de volta ao estoque
+    for (const item of os.itens || []) {
+      const produto = await Produto.findByPk(item.id_produto, { transaction: t });
+      if (produto) {
+        await produto.update(
+          { estoque_atual: produto.estoque_atual + parseInt(item.quantidade, 10) },
+          { transaction: t }
+        );
+      }
+    }
+
+    // 2. Estornar lançamentos financeiros no Caixa (se houver recebimento associado)
+    await fin.estornarPorMovimentacao(os.id_movimentacao, {
+      id_usuario: req.usuario.id_usuario,
+      descricao: `Cancelamento OS #${os.numero_os} — Motivo: ${motivoLimpo}`,
+      permitirNegativo: !!(req.body?.autorizar_saldo_negativo && perms['caixa.aprovar']),
+      ip: req.ip,
+      transaction: t,
+    });
+
+    // 3. Atualizar status da OS e registrar motivo
+    await os.update(
+      {
+        status_os: 'Cancelado',
+        status_pagamento: 'cancelado',
+        motivo_cancelamento: motivoLimpo,
+      },
+      { transaction: t }
+    );
+
+    // 4. Registrar Log de Auditoria
+    if (LogAuditoria) {
+      await LogAuditoria.create(
+        {
+          id_usuario: req.usuario.id_usuario,
+          acao: 'CANCELAR',
+          entidade: 'movimentacao',
+          id_registro: os.id_movimentacao,
+          dados_anteriores: dadosAnteriores,
+          dados_posteriores: os.toJSON(),
+          ip_origem: req.ip || null,
+        },
+        { transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    const osAtualizada = await Movimentacao.findOne({
+      where: { id_movimentacao: os.id_movimentacao },
+      include: osIncludes,
+    });
+    return res.json(osAtualizada);
+  } catch (err) {
+    if (!t.finished) await t.rollback();
+    return fin.responderErro(res, err, 'OS/cancelar', 'Erro interno ao cancelar Ordem de Serviço.');
+  }
+};
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const dashboard = async (req, res) => {
   try {
@@ -409,4 +526,4 @@ const dashboard = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizarStatus, fechar, listarOsPendentes, pagarOsFiado, dashboard };
+module.exports = { listar, buscarPorId, criar, atualizarStatus, fechar, listarOsPendentes, pagarOsFiado, cancelar, dashboard };

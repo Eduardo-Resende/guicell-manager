@@ -54,6 +54,7 @@ export const osService = {
   atualizarStatus: (id, status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado }).then(r => r.data),
   fechar: (id, dados) => api.post(`/ordens-servico/${id}/fechar`, dados).then(r => r.data),
   pagar: (id, forma_pagamento) => api.post(`/ordens-servico/${id}/pagar`, { forma_pagamento }).then(r => r.data),
+  cancelar: (id, motivo) => api.post(`/ordens-servico/${id}/cancelar`, { motivo }).then(r => r.data),
   enviarEmail: (payload) => api.post('/ordens-servico/enviar-email', payload).then(r => r.data),
   enviarWhatsapp: (payload) => api.post('/ordens-servico/enviar-whatsapp', payload).then(r => r.data),
 };

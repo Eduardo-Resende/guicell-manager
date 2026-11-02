@@ -17,5 +17,6 @@ router.post('/', checkPermission('os.criar'), ctrl.criar);
 router.patch('/:id/status', checkPermission(['os.status', 'os.editar', 'os.excluir']), ctrl.atualizarStatus);
 router.post('/:id/fechar', checkPermission('os.status'), ctrl.fechar);
 router.post('/:id/pagar', checkPermission('os.status'), ctrl.pagarOsFiado);
+router.post('/:id/cancelar', checkPermission('os.excluir'), ctrl.cancelar);
 
 module.exports = router;

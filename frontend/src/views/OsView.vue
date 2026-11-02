@@ -151,7 +151,7 @@
             :key="os.id"
             class="kanban-card"
             :class="{ 'kanban-card--overdue': isOverdue(os) }"
-            :draggable="$pode('os.status') && !['Entregue', 'Cancelado'].includes(os.status)"
+            :draggable="($pode('os.status') && !['Entregue', 'Cancelado'].includes(os.status)) || ($pode('os.excluir') && os.status === 'Entregue')"
             @dragstart="onDragStart($event, os)"
             @click="viewDetail(os)"
           >
@@ -455,7 +455,7 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="form-group m-0">
               <label>Atualizar Status</label>
-              <select v-model="selectedOS.status" class="input-control select-control" :disabled="isClosed || (!$pode('os.status') && !$pode('os.excluir'))">
+              <select v-model="selectedOS.status" @change="onStatusSelectChange" class="input-control select-control" :disabled="isClosed || (!$pode('os.status') && !$pode('os.excluir'))">
                 <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Diagnóstico'" value="Aguardando Diagnóstico">Aguardando Diagnóstico</option>
                 <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Cliente'" value="Aguardando Cliente">Aguardando Cliente</option>
                 <option v-if="$pode('os.status') || selectedOS.status === 'Aguardando Peça'" value="Aguardando Peça">Aguardando Peça</option>
@@ -494,7 +494,20 @@
             </svg>
             <span>Imprimir</span>
           </button>
-          <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Cancelar' }}</button>
+          <button
+            v-if="selectedOS.status !== 'Cancelado' && $pode('os.excluir')"
+            type="button"
+            class="btn btn-danger mr-auto"
+            @click="openCancelarModal(selectedOS)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            <span>Cancelar OS</span>
+          </button>
+          <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Voltar' }}</button>
           <button v-if="!isClosed && ($pode('os.editar') || $pode('os.status') || $pode('os.excluir'))" type="button" class="btn" :disabled="selectedOS.status === 'Entregue' && !caixaAberto" @click="saveOSChanges">Salvar Alterações</button>
         </div>
       </div>
@@ -539,6 +552,71 @@
         <button class="btn btn-secondary" @click="closePagarOsModal">Cancelar</button>
         <button class="btn-success-solid" :disabled="!formaPagamentoOs || pagandoOs || !caixaAberto" @click="confirmarPagamentoOs">
           {{ pagandoOs ? 'Registrando...' : 'Confirmar Recebimento' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Cancelar Ordem de Serviço ── -->
+  <div v-if="showCancelarOsModal && osParaCancelar" class="modal-overlay" @click.self="!cancelandoOs && closeCancelarModal()">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Cancelar Ordem de Serviço #{{ osParaCancelar.numero }}</h3>
+        <button class="close-btn" @click="closeCancelarModal" :disabled="cancelandoOs">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="cancel-warning-box mb-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span v-if="osParaCancelar.status === 'Entregue'">
+            Esta OS está <strong>Entregue</strong>. Ao cancelar, todas as peças utilizadas retornarão ao estoque e qualquer valor financeiro recebido será <strong>estornado no caixa</strong>.
+          </span>
+          <span v-else>
+            Ao cancelar esta OS, todas as peças vinculadas <strong>retornarão ao estoque</strong> e o atendimento será finalizado como cancelado.
+          </span>
+        </div>
+
+        <div class="resumo-pagar mb-4">
+          <div class="resumo-item">
+            <span class="text-muted">Cliente</span>
+            <span class="text-white">{{ osParaCancelar.cliente }}</span>
+          </div>
+          <div class="resumo-item">
+            <span class="text-muted">Aparelho</span>
+            <span class="text-white">{{ osParaCancelar.aparelho }}</span>
+          </div>
+          <div v-for="(p, i) in osParaCancelar.parts" :key="i" class="resumo-item">
+            <span class="text-muted">* {{ p.descricao }}</span>
+            <span class="text-white">+{{ p.qtd }} un no estoque</span>
+          </div>
+          <div class="resumo-total-row">
+            <span class="font-bold">Status Atual</span>
+            <span class="font-bold text-white">{{ osParaCancelar.status }}</span>
+          </div>
+        </div>
+
+        <div class="form-group m-0">
+          <label>Motivo do Cancelamento <span class="required-star" style="color:var(--danger)">*</span></label>
+          <textarea
+            v-model="motivoCancelamentoOs"
+            class="input-control text-area-control"
+            rows="3"
+            placeholder="Informe a justificativa do cancelamento (ex: descolamento da peça, cliente desistiu, retorno com defeito)..."
+            required
+          ></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="closeCancelarModal" :disabled="cancelandoOs">Voltar</button>
+        <button
+          class="btn-danger-solid"
+          :disabled="!motivoCancelamentoOs.trim() || cancelandoOs"
+          @click="confirmarCancelamentoOs"
+        >
+          {{ cancelandoOs ? 'Cancelando...' : 'Confirmar Cancelamento' }}
         </button>
       </div>
     </div>
@@ -594,6 +672,45 @@ export default defineComponent({
     const osSelecionada = ref(null);
     const formaPagamentoOs = ref('');
     const pagandoOs = ref(false);
+
+    // Cancelamento de OS
+    const showCancelarOsModal = ref(false);
+    const osParaCancelar = ref(null);
+    const motivoCancelamentoOs = ref('');
+    const cancelandoOs = ref(false);
+
+    const openCancelarModal = (os) => {
+      osParaCancelar.value = os;
+      motivoCancelamentoOs.value = '';
+      showCancelarOsModal.value = true;
+    };
+
+    const closeCancelarModal = () => {
+      if (cancelandoOs.value) return;
+      showCancelarOsModal.value = false;
+      osParaCancelar.value = null;
+      motivoCancelamentoOs.value = '';
+    };
+
+    const confirmarCancelamentoOs = async () => {
+      if (!motivoCancelamentoOs.value.trim()) {
+        alert('Por favor, informe o motivo do cancelamento.');
+        return;
+      }
+      cancelandoOs.value = true;
+      try {
+        const id = osParaCancelar.value.id_os || osParaCancelar.value.id;
+        await osService.cancelar(id, motivoCancelamentoOs.value.trim());
+        closeCancelarModal();
+        showDetailModal.value = false;
+        await Promise.all([fetchOS(), fetchOsPendentes()]);
+        alert('✅ Ordem de Serviço cancelada com sucesso! Peças devolvidas ao estoque e eventuais lançamentos financeiros estornados.');
+      } catch (err) {
+        alert(err.response?.data?.error || 'Erro ao cancelar a Ordem de Serviço.');
+      } finally {
+        cancelandoOs.value = false;
+      }
+    };
 
     const fetchOsPendentes = async () => {
       try {
@@ -844,9 +961,28 @@ export default defineComponent({
       return Math.max(0, total - desconto);
     });
 
+    const onStatusSelectChange = () => {
+      if (!selectedOS.value) return;
+      if (selectedOS.value.status === 'Cancelado') {
+        if (!pode('os.excluir')) {
+          alert('Você não possui permissão para cancelar Ordens de Serviço.');
+          selectedOS.value.status = selectedOS.value.originalStatus || 'Aguardando Diagnóstico';
+          return;
+        }
+        const osRef = selectedOS.value;
+        selectedOS.value.status = osRef.originalStatus || 'Aguardando Diagnóstico';
+        openCancelarModal(osRef);
+      }
+    };
+
     const saveOSChanges = async () => {
       if (isClosed.value) {
         alert('Esta OS já está finalizada e não pode ser alterada.');
+        return;
+      }
+
+      if (selectedOS.value.status === 'Cancelado') {
+        openCancelarModal(selectedOS.value);
         return;
       }
 
@@ -967,14 +1103,24 @@ export default defineComponent({
         draggedOS.value = null;
         return;
       }
-      if (['Entregue', 'Cancelado'].includes(draggedOS.value.status)) {
-        alert('Não é possível mover uma OS já finalizada.');
+      if (draggedOS.value.status === 'Cancelado') {
+        alert('Não é possível mover uma OS já cancelada.');
+        draggedOS.value = null;
+        return;
+      }
+      if (draggedOS.value.status === 'Entregue' && newStatus !== 'Cancelado') {
+        alert('Uma OS já entregue só pode ser cancelada (mova para a coluna Cancelado).');
         draggedOS.value = null;
         return;
       }
 
       const targetOS = draggedOS.value;
       draggedOS.value = null;
+
+      if (newStatus === 'Cancelado') {
+        openCancelarModal(targetOS);
+        return;
+      }
 
       if (newStatus === 'Entregue') {
         if (!caixaAberto.value) {
@@ -1060,6 +1206,14 @@ export default defineComponent({
       closePagarOsModal,
       confirmarPagamentoOs,
       formatarData,
+      onStatusSelectChange,
+      showCancelarOsModal,
+      osParaCancelar,
+      motivoCancelamentoOs,
+      cancelandoOs,
+      openCancelarModal,
+      closeCancelarModal,
+      confirmarCancelamentoOs,
     };
   }
 });
@@ -1809,4 +1963,16 @@ export default defineComponent({
 .btn-success-solid:disabled { opacity: 0.5; cursor: not-allowed; }
 .os-info-date-input { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border, #1e293b); border-radius: 6px; padding: 3px 8px; color: var(--text-white, #ffffff); font-size: 0.82rem; font-family: var(--font-body); width: 100%; outline: none; }
 .os-info-date-input:focus { border-color: var(--primary, #008f39); }
+.cancel-warning-box {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px; padding: 12px; font-size: 0.85rem; color: #fca5a5; line-height: 1.45;
+}
+.btn-danger-solid {
+  background: var(--danger, #ef4444); color: #fff; border: none;
+  padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: opacity 0.2s;
+}
+.btn-danger-solid:hover { opacity: 0.85; }
+.btn-danger-solid:disabled { opacity: 0.5; cursor: not-allowed; }
+.mr-auto { margin-right: auto; }
 </style>

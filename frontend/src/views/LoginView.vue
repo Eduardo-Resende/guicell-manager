@@ -477,7 +477,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, nextTick, onUnmounted } from 'vue';
+import { defineComponent, ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import loginHero from '../assets/login-hero.png';
 import { authService } from '../services/index.js';
@@ -550,6 +550,11 @@ export default defineComponent({
       errorMsg.value = '';
       try {
         await authService.login(login.value, password.value);
+        if (rememberMe.value) {
+          localStorage.setItem('guicell_saved_login', login.value.trim());
+        } else {
+          localStorage.removeItem('guicell_saved_login');
+        }
         router.push(obterPrimeiraRotaPermitida());
       } catch (err) {
         errorMsg.value = err.response?.data?.error || 'Erro ao conectar com o servidor.';
@@ -678,6 +683,16 @@ export default defineComponent({
       password.value = '';
       closeForgotModal();
     };
+
+    onMounted(() => {
+      const savedLogin = localStorage.getItem('guicell_saved_login');
+      if (savedLogin) {
+        login.value = savedLogin;
+        rememberMe.value = true;
+      } else {
+        rememberMe.value = false;
+      }
+    });
 
     onUnmounted(() => {
       if (resendTimer) {
