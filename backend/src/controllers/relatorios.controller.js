@@ -9,10 +9,21 @@ const getPeriodo = (data_inicio, data_fim) => {
   const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
   const inicioStr = data_inicio || '2020-01-01';
   const fimStr = data_fim || hojeStr;
+
+  const parseData = (str, horaPadrao) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      return new Date(`${str}T${horaPadrao}-03:00`);
+    }
+    if (/(Z|[+-]\d{2}:\d{2})$/.test(str)) {
+      return new Date(str);
+    }
+    return new Date(`${str}-03:00`);
+  };
+
   return {
     [Op.between]: [
-      new Date(inicioStr.includes('T') ? inicioStr : `${inicioStr}T00:00:00`),
-      new Date(fimStr.includes('T') ? fimStr : `${fimStr}T23:59:59.999`),
+      parseData(inicioStr, '00:00:00'),
+      parseData(fimStr, '23:59:59.999'),
     ],
   };
 };

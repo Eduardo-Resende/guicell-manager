@@ -160,17 +160,13 @@
                 <thead>
                   <tr>
                     <th>Descrição</th>
-                    <th class="text-center">Qtd</th>
-                    <th class="text-right">Unitário</th>
-                    <th class="text-right">Subtotal</th>
+                    <th class="text-center" style="width: 80px;">Qtd</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(part, i) in os.parts" :key="i">
                     <td>{{ part.descricao }}</td>
                     <td class="text-center">{{ part.qtd || 1 }}</td>
-                    <td class="text-right">{{ formatMoney(part.preco) }}</td>
-                    <td class="text-right">{{ formatMoney(part.preco * (part.qtd || 1)) }}</td>
                   </tr>
                 </tbody>
               </table>

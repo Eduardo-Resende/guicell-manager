@@ -18,14 +18,15 @@ vendasRouter.post('/:id/cancelar', checkPermission('vendas.cancelar'), vendCtrl.
 // Caixa
 const caixaRouter = Router();
 caixaRouter.use(authenticate);
+caixaRouter.get('/status', caixaCtrl.statusSessao);
 caixaRouter.get('/formas-pagamento', caixaCtrl.formasPagamento);
 caixaRouter.get('/resumo', checkPermission(['caixa', 'dashboard.faturamento']), caixaCtrl.resumo);
 caixaRouter.get('/resumo-dia', checkPermission(['caixa', 'dashboard.faturamento']), caixaCtrl.resumoDia);
 caixaRouter.get('/abertura-info', checkPermission('caixa.abrir_fechar'), caixaCtrl.infoAbertura);
 caixaRouter.get('/fechamento-previa', checkPermission('caixa.abrir_fechar'), caixaCtrl.previaFechamento);
 caixaRouter.get('/sessoes', checkPermission('caixa.ver'), caixaCtrl.listarSessoes);
-caixaRouter.get('/transferencias', checkPermission('caixa.ver'), caixaCtrl.listarTransferencias);
-caixaRouter.get('/transferencias/:id', checkPermission('caixa.ver'), caixaCtrl.buscarTransferencia);
+caixaRouter.get('/transferencias', checkPermission(['caixa.ver', 'caixa.transferir']), caixaCtrl.listarTransferencias);
+caixaRouter.get('/transferencias/:id', checkPermission(['caixa.ver', 'caixa.transferir']), caixaCtrl.buscarTransferencia);
 caixaRouter.post('/transferencias', checkPermission('caixa.transferir'), caixaCtrl.criarTransferencia);
 caixaRouter.post('/transferencias/:id/cancelar', checkPermission('caixa.transferir'), caixaCtrl.cancelarTransferencia);
 caixaRouter.get('/', checkPermission('caixa.ver'), caixaCtrl.listar);

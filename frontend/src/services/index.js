@@ -77,6 +77,7 @@ export const vendasService = {
 };
 
 export const caixaService = {
+  status: () => api.get('/caixa/status').then(r => r.data),
   listar: (filtros) => api.get('/caixa', { params: filtros }).then(r => r.data),
   resumo: () => api.get('/caixa/resumo').then(r => r.data),
   resumoDia: () => api.get('/caixa/resumo').then(r => r.data),

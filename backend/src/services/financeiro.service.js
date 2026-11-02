@@ -272,6 +272,18 @@ const sessaoAberta = (transaction = null, lock = false) => SessaoCaixa.findOne({
   ...(lock && transaction ? { lock: transaction.LOCK.UPDATE } : {}),
 });
 
+const exigirSessaoAberta = async (transaction = null, operacao = 'esta operação') => {
+  const sessao = await sessaoAberta(transaction);
+  if (!sessao) {
+    throw new ErroNegocio(
+      `O caixa está fechado. Abra uma sessão de caixa antes de realizar ${operacao}.`,
+      409,
+      'CAIXA_FECHADO'
+    );
+  }
+  return sessao;
+};
+
 const registrarAuditoria = (dados, transaction) => LogAuditoria.create({
   id_usuario: dados.id_usuario,
   acao: dados.acao,
@@ -917,7 +929,7 @@ module.exports = {
   paraCentavos, deCentavos, formatarMoeda,
   normalizarFormaCodigo, carregarCadastros, resolverPagamentos, pagamentosDaOperacao, rotuloFormas, somaCentavos, pernasParaPagamentos,
   obterSaldos, saldoContaTravado,
-  sessaoAberta, registrarAuditoria,
+  sessaoAberta, exigirSessaoAberta, registrarAuditoria,
   registrarLancamento, estornarLancamento, estornarPorMovimentacao,
   criarTransferencia, cancelarTransferencia,
   informacoesAbertura, abrirSessao, fecharSessao, resumoSessao,

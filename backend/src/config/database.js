@@ -8,6 +8,7 @@ module.exports = {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 3306,
     dialect: 'mysql',
+    timezone: '-03:00',
     logging: false,
     define: {
       timestamps: true,
@@ -20,6 +21,7 @@ module.exports = {
     database: process.env.DB_NAME,
     host: process.env.DB_HOST,
     dialect: 'mysql',
+    timezone: '-03:00',
     logging: false,
     define: {
       timestamps: true,

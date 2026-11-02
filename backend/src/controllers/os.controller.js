@@ -162,6 +162,9 @@ const atualizarStatus = async (req, res) => {
       if (status !== 'Cancelado' && !perms['os.status']) {
         await t.rollback(); return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para alterar o status da OS (os.status).' });
       }
+      if (status === 'Entregue') {
+        await fin.exigirSessaoAberta(t, 'entrega de Ordens de Serviço');
+      }
     }
 
     if (itens !== undefined) {
@@ -198,6 +201,8 @@ const atualizarStatus = async (req, res) => {
 const fechar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'entrega de Ordens de Serviço');
+
     const { valor_final, forma_pagamento, pagamentos, itens, prazo_estimado } = req.body;
     const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
     if (valor_final === undefined || (!forma_pagamento && !dividido)) {
@@ -290,6 +295,8 @@ const listarOsPendentes = async (req, res) => {
 const pagarOsFiado = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'recebimentos de OS');
+
     const { forma_pagamento, pagamentos } = req.body;
     const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
     if (!dividido && (!forma_pagamento || forma_pagamento === 'Fiado')) {

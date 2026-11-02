@@ -58,6 +58,8 @@ const listarPendentes = async (req, res) => {
 const criar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'vendas');
+
     const { id_cliente, forma_pagamento, pagamentos, desconto, itens } = req.body;
     const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
 
@@ -137,6 +139,8 @@ const criar = async (req, res) => {
 const pagarFiado = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'recebimentos de vendas');
+
     const { forma_pagamento, pagamentos } = req.body;
     const dividido = Array.isArray(pagamentos) && pagamentos.length > 0;
     if (!dividido && (!forma_pagamento || forma_pagamento === 'Fiado')) {

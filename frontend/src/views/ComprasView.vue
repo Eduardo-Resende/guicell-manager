@@ -248,12 +248,21 @@
           </div>
         </div>
 
+        <!-- Banner de Caixa Fechado -->
+        <div v-if="!caixaAberto" class="p-3 mb-3" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
+          <div class="text-danger font-semibold text-sm flex items-center gap-1">
+            <span>⚠️ Caixa Fechado</span>
+          </div>
+          <div class="text-xs text-muted mt-1">É necessário abrir o caixa antes de registrar compras ou pagamentos.</div>
+          <router-link to="/caixa" class="text-xs text-info font-medium block mt-1 hover:underline">Abrir Caixa &rarr;</router-link>
+        </div>
+
         <!-- Botões de Ação -->
         <div class="flex gap-3 justify-end">
           <button type="button" class="btn btn-secondary" @click="resetarFormulario">
             Limpar Formulário
           </button>
-          <button type="submit" class="btn btn-compra" :disabled="salvando || compraForm.itens.length === 0">
+          <button type="submit" class="btn btn-compra" :disabled="salvando || compraForm.itens.length === 0 || !caixaAberto">
             <span v-if="salvando">Registrando...</span>
             <span v-else>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
@@ -665,7 +674,7 @@
             <button type="button" class="btn btn-secondary flex-1" @click="showPagarCompraModal = false" :disabled="pagandoCompra">
               Cancelar
             </button>
-            <button type="submit" class="btn btn-success flex-1" :disabled="pagandoCompra || totalPagarAgora <= 0 || totalPagarAgora > (compraParaPagar?.valor_pendente || 0)">
+            <button type="submit" class="btn btn-success flex-1" :disabled="pagandoCompra || totalPagarAgora <= 0 || totalPagarAgora > (compraParaPagar?.valor_pendente || 0) || !caixaAberto">
               {{ pagandoCompra ? 'Registrando...' : 'Confirmar Pagamento' }}
             </button>
           </div>
@@ -765,8 +774,8 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted } from 'vue';
-import { comprasService, fornecedoresService, produtosService, categoriasService } from '../services/index.js';
+import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { comprasService, fornecedoresService, produtosService, categoriasService, caixaService } from '../services/index.js';
 import { formatCNPJ, formatPhone, unmask, validateCpfCnpj, validatePhone } from '../utils/formatters.js';
 import { formatarData } from '../utils/formatDate.js';
 import { pode } from '../composables/usePermissoes';
@@ -781,6 +790,20 @@ export default defineComponent({
         : 'fornecedores';
     const activeTab = ref(abaInicial);
     const salvando = ref(false);
+    const caixaAberto = ref(true);
+    const checandoCaixa = ref(false);
+
+    const verificarStatusCaixa = async () => {
+      try {
+        checandoCaixa.value = true;
+        const res = await caixaService.status();
+        caixaAberto.value = !!res.caixaAberto;
+      } catch (e) {
+        console.error('Erro ao verificar status do caixa:', e);
+      } finally {
+        checandoCaixa.value = false;
+      }
+    };
 
     // ── Dados ──────────────────────────────────────────────────────────────────
     const compras = ref([]);
@@ -884,6 +907,10 @@ export default defineComponent({
     });
 
     const abrirModalPagarCompra = (compra) => {
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de realizar pagamentos de compras.');
+        return;
+      }
       compraParaPagar.value = compra;
       pagamentosQuitar.value = [{
         forma: 'dinheiro',
@@ -907,6 +934,10 @@ export default defineComponent({
     };
 
     const confirmarPagamentoCompra = async () => {
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de registrar o pagamento.');
+        return;
+      }
       if (totalPagarAgora.value <= 0) {
         alert('Informe ao menos uma forma de pagamento com valor.');
         return;
@@ -1053,6 +1084,10 @@ export default defineComponent({
 
     // ── Registrar Compra ───────────────────────────────────────────────────────
     const registrarCompra = async () => {
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de registrar compras.');
+        return;
+      }
       if (compraForm.value.itens.length === 0) {
         alert('Adicione ao menos um item à compra.');
         return;
@@ -1258,6 +1293,7 @@ export default defineComponent({
     };
 
     onMounted(async () => {
+      verificarStatusCaixa();
       await buscarFornecedores();
       await buscarProdutos();
       await buscarCategorias();
@@ -1266,7 +1302,16 @@ export default defineComponent({
       }
     });
 
+    watch(activeTab, (tab) => {
+      if (tab === 'nova' || tab === 'historico') {
+        verificarStatusCaixa();
+      }
+    });
+
     return {
+      caixaAberto,
+      checandoCaixa,
+      verificarStatusCaixa,
       activeTab,
       salvando,
       compras,

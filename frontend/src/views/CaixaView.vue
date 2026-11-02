@@ -101,7 +101,7 @@
       </div>
 
       <!-- ── Seção de Saldos por Localização & Formas de Pagamento ──────────── -->
-      <div v-if="$pode('caixa.ver')" class="mb-4">
+      <div v-if="caixaAberto && $pode('caixa.ver')" class="mb-4">
         <div class="grid-saldos">
           <!-- Card 1: Saldo Total da Loja -->
           <div class="card saldo-card card-total">
@@ -159,7 +159,7 @@
       </div>
 
       <!-- ── Extrato / Tabela de Movimentações ──────────────────────────────── -->
-      <div v-if="$pode('caixa.ver')" class="card">
+      <div v-if="caixaAberto && $pode('caixa.ver')" class="card">
         <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
           <div>
             <h3>Movimentações do Caixa</h3>
@@ -259,7 +259,10 @@
                 </td>
               </tr>
               <tr v-if="logsFiltrados.length === 0">
-                <td colspan="8" class="text-center text-muted py-6">Nenhuma movimentação encontrada para os filtros aplicados.</td>
+                <td colspan="8" class="text-center text-muted py-6">
+                  <span v-if="!caixaAberto">O caixa está fechado. Abra uma sessão de caixa para iniciar as operações do turno.</span>
+                  <span v-else>Nenhuma movimentação registrada nesta sessão de caixa até o momento.</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -999,8 +1002,12 @@ export default defineComponent({
         }
 
         if (pode('caixa.ver')) {
-          const listData = await caixaService.listar({ limite: 300 });
-          logs.value = listData;
+          if (caixaAberto.value) {
+            const listData = await caixaService.listar({ id_sessao: 'atual' });
+            logs.value = listData;
+          } else {
+            logs.value = [];
+          }
         } else {
           logs.value = [];
         }
@@ -1012,6 +1019,7 @@ export default defineComponent({
     };
 
     const fetchTransferencias = async () => {
+      if (!pode('caixa.transferir') && !pode('caixa.ver')) return;
       try {
         transferencias.value = await caixaService.transferencias();
       } catch (err) {
@@ -1020,6 +1028,7 @@ export default defineComponent({
     };
 
     const fetchSessoes = async () => {
+      if (!pode('caixa.ver')) return;
       try {
         sessoes.value = await caixaService.sessoes();
       } catch (err) {

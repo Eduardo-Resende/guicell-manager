@@ -179,11 +179,19 @@
             </div>
           </div>
 
+          <div v-if="!caixaAberto" class="p-3 mb-3" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
+            <div class="text-danger font-semibold text-sm flex items-center gap-1">
+              <span>⚠️ Caixa Fechado</span>
+            </div>
+            <div class="text-xs text-muted mt-1">É necessário abrir o caixa antes de realizar vendas no PDV.</div>
+            <router-link to="/caixa" class="text-xs text-info font-medium block mt-1 hover:underline">Abrir Caixa &rarr;</router-link>
+          </div>
+
           <button
             v-if="$pode('vendas.criar')"
             class="btn btn-block"
             :class="{ 'btn-fiado': formaPagamento === 'Fiado' }"
-            :disabled="cart.length === 0"
+            :disabled="cart.length === 0 || !caixaAberto"
             @click="finalizeSale"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
@@ -431,10 +439,14 @@
               <option value="Cartão de crédito">Cartão de crédito</option>
             </select>
           </div>
+
+          <div v-if="!caixaAberto" class="p-2 mt-3 text-xs" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; color: #fca5a5;">
+            ⚠️ O caixa está fechado. Abra uma sessão de caixa para receber pagamentos.
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="closePagarModal">Cancelar</button>
-          <button class="btn-success-solid" :disabled="!formaPagamentoFiado || pagando" @click="confirmarPagamento">
+          <button class="btn-success-solid" :disabled="!formaPagamentoFiado || pagando || !caixaAberto" @click="confirmarPagamento">
             {{ pagando ? 'Registrando...' : 'Confirmar Recebimento' }}
           </button>
         </div>
@@ -501,7 +513,7 @@
 
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
-import { produtosService, vendasService, clientesService } from '../services/index.js';
+import { produtosService, vendasService, clientesService, caixaService } from '../services/index.js';
 import { formatarDataHora } from '../utils/formatDate.js';
 import { pode } from '../composables/usePermissoes';
 
@@ -509,6 +521,20 @@ export default defineComponent({
   name: 'VendasView',
   setup() {
     const activeSubTab = ref(pode('vendas.criar') ? 'pdv' : 'history');
+    const caixaAberto = ref(true);
+    const checandoCaixa = ref(false);
+
+    const verificarStatusCaixa = async () => {
+      try {
+        checandoCaixa.value = true;
+        const res = await caixaService.status();
+        caixaAberto.value = !!res.caixaAberto;
+      } catch (e) {
+        console.error('Erro ao verificar status do caixa:', e);
+      } finally {
+        checandoCaixa.value = false;
+      }
+    };
     const productQuery = ref('');
     const desconto = ref(0);
     const formaPagamento = ref('PIX');
@@ -669,6 +695,10 @@ export default defineComponent({
 
     const finalizeSale = async () => {
       if (cart.value.length === 0) return;
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de realizar vendas.');
+        return;
+      }
       const isFiado = formaPagamento.value === 'Fiado';
       if (isFiado && !clienteSelecionado.value) {
         alert('Para venda fiado, o cliente e obrigatorio. Selecione um cliente antes de continuar.');
@@ -711,6 +741,10 @@ export default defineComponent({
 
     const confirmarPagamento = async () => {
       if (!formaPagamentoFiado.value) return;
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de receber pagamentos.');
+        return;
+      }
       pagando.value = true;
       try {
         await vendasService.pagar(vendaSelecionada.value.id, formaPagamentoFiado.value);
@@ -768,12 +802,20 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      verificarStatusCaixa();
       fetchCatalog();
       fetchSales();
       fetchPendentes();
     });
 
+    watch(activeSubTab, (tab) => {
+      if (tab === 'pdv' || tab === 'fiado') {
+        verificarStatusCaixa();
+      }
+    });
+
     return {
+      caixaAberto, checandoCaixa, verificarStatusCaixa,
       activeSubTab, productQuery, desconto, formaPagamento,
       cart, catalog, filteredCatalog, subtotal, total,
       addToCart, removeFromCart, incrementQty, decrementQty, finalizeSale,

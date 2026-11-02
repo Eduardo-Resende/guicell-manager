@@ -71,6 +71,19 @@ const resumo = async (req, res) => {
 };
 
 // ─── Extrato ──────────────────────────────────────────────────────────────────
+const statusSessao = async (req, res) => {
+  try {
+    const sessao = await fin.sessaoAberta();
+    return res.json({
+      caixaAberto: !!sessao,
+      id_sessao: sessao ? sessao.id_sessao : null,
+      data_abertura: sessao ? sessao.data_abertura : null,
+    });
+  } catch (err) {
+    return responderErro(res, err, 'Caixa/statusSessao');
+  }
+};
+
 const listar = async (req, res) => {
   try {
     const { data_inicio, data_fim, tipo, natureza, id_sessao, forma, conta, limite } = req.query;
@@ -82,12 +95,13 @@ const listar = async (req, res) => {
     if (natureza === 'todas') delete where.natureza;
     if (tipo) where.tipo = tipo;
 
-    if (id_sessao === 'atual') {
+    const sessaoFiltro = id_sessao !== undefined ? id_sessao : (data_inicio || data_fim ? null : 'atual');
+    if (sessaoFiltro === 'atual') {
       const atual = await fin.sessaoAberta();
       if (!atual) return res.json([]);
       where.id_sessao = atual.id_sessao;
-    } else if (id_sessao) {
-      where.id_sessao = id_sessao;
+    } else if (sessaoFiltro && sessaoFiltro !== 'todas') {
+      where.id_sessao = sessaoFiltro;
     }
 
     if (data_inicio || data_fim) {
@@ -123,7 +137,7 @@ const listar = async (req, res) => {
           ],
         },
       ],
-      order: [['data', 'DESC'], ['id_caixa', 'DESC']],
+      order: [['id_caixa', 'DESC'], ['data', 'DESC']],
       limit: Math.min(parseInt(limite, 10) || 500, 2000),
     });
 
@@ -401,6 +415,7 @@ const cancelarTransferencia = async (req, res) => {
 };
 
 module.exports = {
+  statusSessao,
   formasPagamento, resumo, listar, listarSessoes, infoAbertura, abrirCaixa, previaFechamento, fecharCaixa,
   registrarManual, estornarManual,
   listarTransferencias, buscarTransferencia, criarTransferencia, cancelarTransferencia,

@@ -19,7 +19,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const isLoginRequest = error.config?.url?.includes('/auth/login');
-    if ((error.response?.status === 401 || error.response?.status === 403) && !isLoginRequest) {
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('guicell_token');
       localStorage.removeItem('guicell_usuario');
       window.location.href = '/login';

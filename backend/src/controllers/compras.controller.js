@@ -84,6 +84,8 @@ const buscarPorId = async (req, res) => {
 const criar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'compras');
+
     const { id_fornecedor, nome_fornecedor_avulso, data_compra, itens, observacao, pagamentos, a_prazo } = req.body;
 
     if (!data_compra)                              { await t.rollback(); return res.status(400).json({ error: 'Data da compra é obrigatória.' }); }
@@ -189,6 +191,8 @@ const criar = async (req, res) => {
 const pagar = async (req, res) => {
   const t = await sequelize.transaction();
   try {
+    await fin.exigirSessaoAberta(t, 'pagamentos de compras');
+
     const { pagamentos } = req.body;
     const compra = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'compra' }, transaction: t, lock: t.LOCK.UPDATE });
     if (!compra) throw new ErroNegocio('Compra não encontrada.', 404);

@@ -476,6 +476,13 @@
                 <option value="Fiado">Fiado (Receber Depois)</option>
               </select>
             </div>
+            <div v-if="selectedOS.status === 'Entregue' && !caixaAberto" class="col-span-2 p-3 my-2" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
+              <div class="text-danger font-semibold text-sm flex items-center gap-1">
+                <span>⚠️ Caixa Fechado</span>
+              </div>
+              <div class="text-xs text-muted mt-1">É necessário abrir o caixa antes de entregar a OS e receber pagamentos.</div>
+              <router-link to="/caixa" class="text-xs text-info font-medium block mt-1 hover:underline">Abrir Caixa &rarr;</router-link>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -488,7 +495,7 @@
             <span>Imprimir</span>
           </button>
           <button type="button" class="btn btn-secondary" @click="showDetailModal = false">{{ isClosed ? 'Fechar' : 'Cancelar' }}</button>
-          <button v-if="!isClosed && ($pode('os.editar') || $pode('os.status') || $pode('os.excluir'))" type="button" class="btn" @click="saveOSChanges">Salvar Alterações</button>
+          <button v-if="!isClosed && ($pode('os.editar') || $pode('os.status') || $pode('os.excluir'))" type="button" class="btn" :disabled="selectedOS.status === 'Entregue' && !caixaAberto" @click="saveOSChanges">Salvar Alterações</button>
         </div>
       </div>
     </div>
@@ -524,10 +531,13 @@
             <option value="Cartão de crédito">Cartão de crédito</option>
           </select>
         </div>
+        <div v-if="!caixaAberto" class="p-2 mt-3 text-xs" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; color: #fca5a5;">
+          ⚠️ O caixa está fechado. Abra uma sessão de caixa para receber pagamentos.
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" @click="closePagarOsModal">Cancelar</button>
-        <button class="btn-success-solid" :disabled="!formaPagamentoOs || pagandoOs" @click="confirmarPagamentoOs">
+        <button class="btn-success-solid" :disabled="!formaPagamentoOs || pagandoOs || !caixaAberto" @click="confirmarPagamentoOs">
           {{ pagandoOs ? 'Registrando...' : 'Confirmar Recebimento' }}
         </button>
       </div>
@@ -544,7 +554,7 @@
 
 <script>
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
-import { osService, clientesService, produtosService, usuariosService, aparelhosService } from '../services/index.js';
+import { osService, clientesService, produtosService, usuariosService, aparelhosService, caixaService } from '../services/index.js';
 import { pode } from '../composables/usePermissoes';
 import OsViewer from '../components/OsViewer.vue';
 import { formatarData } from '../utils/formatDate.js';
@@ -559,6 +569,16 @@ export default defineComponent({
     const showAddModal = ref(false);
     const showDetailModal = ref(false);
     const selectedOS = ref(null);
+    const caixaAberto = ref(true);
+
+    const verificarStatusCaixa = async () => {
+      try {
+        const res = await caixaService.status();
+        caixaAberto.value = !!res.caixaAberto;
+      } catch (e) {
+        console.error('Erro ao verificar status do caixa:', e);
+      }
+    };
     const newPartId = ref('');
     const viewMode = ref('lista'); // 'lista' | 'kanban'
     const draggedOS = ref(null);
@@ -585,6 +605,10 @@ export default defineComponent({
     };
 
     const openPagarOsModal = (os) => {
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de receber pagamentos de OS.');
+        return;
+      }
       osSelecionada.value = os;
       formaPagamentoOs.value = '';
       showPagarOsModal.value = true;
@@ -597,6 +621,10 @@ export default defineComponent({
 
     const confirmarPagamentoOs = async () => {
       if (!formaPagamentoOs.value) return;
+      if (!caixaAberto.value) {
+        alert('O caixa está fechado. Abra uma sessão de caixa antes de receber pagamentos de OS.');
+        return;
+      }
       pagandoOs.value = true;
       try {
         await osService.pagar(osSelecionada.value.id_movimentacao, formaPagamentoOs.value);
@@ -746,6 +774,7 @@ export default defineComponent({
 
     const viewDetail = async (os) => {
       try {
+        verificarStatusCaixa();
         // Carrega dados completos da OS (incluindo itens/peças)
         const detailedOS = await osService.buscarPorId(os.id_os);
         selectedOS.value = {
@@ -821,9 +850,15 @@ export default defineComponent({
         return;
       }
 
-      if (selectedOS.value.status === 'Entregue' && !selectedOS.value.formaPagamento) {
-        alert('Por favor, selecione a Forma de Pagamento.');
-        return;
+      if (selectedOS.value.status === 'Entregue') {
+        if (!caixaAberto.value) {
+          alert('O caixa está fechado. Abra uma sessão de caixa antes de entregar a Ordem de Serviço.');
+          return;
+        }
+        if (!selectedOS.value.formaPagamento) {
+          alert('Por favor, selecione a Forma de Pagamento.');
+          return;
+        }
       }
 
       try {
@@ -942,6 +977,10 @@ export default defineComponent({
       draggedOS.value = null;
 
       if (newStatus === 'Entregue') {
+        if (!caixaAberto.value) {
+          alert('O caixa está fechado. Abra uma sessão de caixa antes de entregar a Ordem de Serviço.');
+          return;
+        }
         await viewDetail(targetOS);
         if (selectedOS.value) {
           selectedOS.value.status = newStatus;
@@ -967,12 +1006,15 @@ export default defineComponent({
     });
 
     onMounted(() => {
+      verificarStatusCaixa();
       fetchOS();
       loadFormDependencies();
       fetchOsPendentes();
     });
 
     return {
+      caixaAberto,
+      verificarStatusCaixa,
       searchQuery,
       filterStatus,
       filterTecnico,
