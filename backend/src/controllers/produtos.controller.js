@@ -1,4 +1,4 @@
-const { Produto, Categoria, sequelize } = require('../models');
+const { Produto, Categoria, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 const listar = async (req, res) => {
@@ -145,6 +145,17 @@ const remover = async (req, res) => {
   try {
     const produto = await Produto.findByPk(req.params.id);
     if (!produto) return res.status(404).json({ error: 'Produto não encontrado.' });
+    if (LogAuditoria) {
+      await LogAuditoria.create({
+        id_usuario: req.usuario?.id_usuario || 1,
+        acao: 'EXCLUIR',
+        entidade: 'produtos',
+        id_registro: produto.id_produto,
+        dados_anteriores: produto.toJSON(),
+        dados_posteriores: null,
+        ip_origem: req.ip,
+      });
+    }
     await produto.destroy();
     return res.status(204).send();
   } catch (err) {
@@ -173,6 +184,17 @@ const registrarEntrada = async (req, res) => {
 
     const delta = tipo === 'saida' ? -qtd : qtd;
     const novoSaldo = Math.max(0, produto.estoque_atual + delta);
+    if (LogAuditoria) {
+      await LogAuditoria.create({
+        id_usuario: req.usuario?.id_usuario || 1,
+        acao: 'AJUSTE_ESTOQUE',
+        entidade: 'produtos',
+        id_registro: produto.id_produto,
+        dados_anteriores: { estoque_atual: produto.estoque_atual },
+        dados_posteriores: { estoque_atual: novoSaldo, tipo, quantidade: qtd },
+        ip_origem: req.ip,
+      });
+    }
     await produto.update({ estoque_atual: novoSaldo });
     return res.json({ message: 'Estoque atualizado.', produto });
   } catch (err) {

@@ -305,25 +305,6 @@
                   </div>
                 </div>
 
-                <!-- SMS -->
-                <div 
-                  class="channel-card" 
-                  :class="{ selected: forgotChannel === 'sms' }"
-                  @click="forgotChannel = 'sms'"
-                >
-                  <div class="channel-icon-circle sms">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                  </div>
-                  <div class="channel-info">
-                    <span class="channel-title">SMS</span>
-                    <span class="channel-sub">Mensagem de texto no celular</span>
-                  </div>
-                  <div class="channel-radio">
-                    <div class="channel-radio-dot" v-if="forgotChannel === 'sms'"></div>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -544,7 +525,6 @@ export default defineComponent({
     const canalLabel = (channel) => {
       if (channel === 'whatsapp') return 'WhatsApp';
       if (channel === 'email') return 'E-mail';
-      if (channel === 'sms') return 'SMS';
       return channel;
     };
 
@@ -1330,11 +1310,6 @@ export default defineComponent({
 .channel-icon-circle.email {
   background: rgba(59, 130, 246, 0.15);
   color: #3b82f6;
-}
-
-.channel-icon-circle.sms {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
 }
 
 .channel-info {

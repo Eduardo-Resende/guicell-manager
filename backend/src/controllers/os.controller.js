@@ -1,6 +1,6 @@
 'use strict';
 
-const { Movimentacao, ItemMovimentacao, Cliente, Aparelho, Usuario, Produto, Caixa, sequelize } = require('../models');
+const { Movimentacao, ItemMovimentacao, Cliente, Aparelho, Usuario, Produto, Caixa, LogAuditoria, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const fin = require('../services/financeiro.service');
 
@@ -184,6 +184,18 @@ const atualizarStatus = async (req, res) => {
       payload.status_pagamento = forma_pagamento === 'Fiado' ? 'pendente' : 'pago';
     }
 
+    if (status === 'Cancelado' && LogAuditoria) {
+      await LogAuditoria.create({
+        id_usuario: req.usuario?.id_usuario || os.id_usuario,
+        acao: 'CANCELAR',
+        entidade: 'movimentacao',
+        id_registro: os.id_movimentacao,
+        dados_anteriores: os.toJSON(),
+        dados_posteriores: { ...os.toJSON(), ...payload },
+        ip_origem: req.ip,
+      }, { transaction: t });
+    }
+
     await os.update(payload, { transaction: t });
     await t.commit();
 
@@ -233,6 +245,18 @@ const fechar = async (req, res) => {
       status_pagamento: isFiado ? 'pendente' : 'pago',
     };
     if (prazo_estimado !== undefined) updatePayload.prazo_estimado = prazo_estimado || null;
+
+    if (LogAuditoria) {
+      await LogAuditoria.create({
+        id_usuario: req.usuario?.id_usuario || os.id_usuario,
+        acao: 'FECHAR',
+        entidade: 'movimentacao',
+        id_registro: os.id_movimentacao,
+        dados_anteriores: os.toJSON(),
+        dados_posteriores: { ...os.toJSON(), ...updatePayload },
+        ip_origem: req.ip,
+      }, { transaction: t });
+    }
 
     await os.update(updatePayload, { transaction: t });
 

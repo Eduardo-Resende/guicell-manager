@@ -91,7 +91,7 @@ const mascararEmail = (email) => {
   return `${user.charAt(0)}****${user.charAt(user.length - 1)}@${domain}`;
 };
 
-// ── Solicitar código de recuperação (WhatsApp / E-mail / SMS) ─────────────────
+// ── Solicitar código de recuperação (WhatsApp / E-mail) ─────────────────
 const solicitarRecuperacao = async (req, res) => {
   try {
     const { login, canal } = req.body;
@@ -116,7 +116,11 @@ const solicitarRecuperacao = async (req, res) => {
 
     const canalNormalizado = String(canal).toLowerCase();
 
-    if (['whatsapp', 'sms'].includes(canalNormalizado) && !usuario.telefone) {
+    if (!['whatsapp', 'email'].includes(canalNormalizado)) {
+      return res.status(400).json({ error: 'Canal de recuperação inválido. Escolha WhatsApp ou E-mail.' });
+    }
+
+    if (canalNormalizado === 'whatsapp' && !usuario.telefone) {
       return res.status(400).json({
         error: `O usuário "${usuario.nome}" não possui telefone cadastrado. Solicite ao Gerente para cadastrar ou escolha outro canal.`,
       });
@@ -233,22 +237,10 @@ const solicitarRecuperacao = async (req, res) => {
       }
     }
 
-    // Envio por SMS
-    else if (canalNormalizado === 'sms') {
-      destinoMascarado = mascararTelefone(usuario.telefone);
-      console.log(`[Recuperacao] Solicitação de SMS para ${usuario.telefone}. Código: ${codigo}`);
 
-      // Como o sistema não possui gateway SMS contratado nativo, se houver WhatsApp ou log, avisamos com elegância
-      return res.json({
-        message: 'Código enviado por SMS.',
-        destino: destinoMascarado,
-        canal: 'SMS',
-        codigoSimulado: process.env.NODE_ENV !== 'production' ? codigo : undefined,
-      });
-    }
 
     return res.json({
-      message: `Código enviado com sucesso via ${canalNormalizado === 'whatsapp' ? 'WhatsApp' : canalNormalizado === 'email' ? 'E-mail' : 'SMS'}!`,
+      message: `Código enviado com sucesso via ${canalNormalizado === 'whatsapp' ? 'WhatsApp' : 'E-mail'}!`,
       destino: destinoMascarado,
       canal: canalNormalizado,
     });
