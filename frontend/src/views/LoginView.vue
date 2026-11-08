@@ -204,7 +204,7 @@
             <h3 class="m-0 text-white font-bold text-lg">Recuperar Senha</h3>
             <p class="text-muted text-xs m-0">
               <span v-if="forgotStep === 1">Passo 1 de 3: Escolha onde receber seu código</span>
-              <span v-else-if="forgotStep === 2">Passo 2 de 3: Digite o código de 4 dígitos</span>
+              <span v-else-if="forgotStep === 2">Passo 2 de 3: Digite o código de 8 dígitos</span>
               <span v-else-if="forgotStep === 3">Passo 3 de 3: Crie sua nova senha</span>
               <span v-else-if="forgotStep === 4">Sucesso!</span>
             </p>
@@ -262,7 +262,7 @@
             </div>
 
             <div class="channel-selector-group">
-              <label class="channel-label">Selecione onde deseja receber o código de 4 dígitos:</label>
+              <label class="channel-label">Selecione onde deseja receber o código de 8 dígitos:</label>
               <div class="channel-cards">
                 <!-- WhatsApp -->
                 <div 
@@ -320,7 +320,7 @@
           <div v-if="forgotStep === 2" class="text-center">
             <div class="code-instruction">
               <p class="text-white text-sm m-0">
-                Enviamos um código de 4 dígitos via <strong>{{ canalLabel(forgotChannel) }}</strong> para:
+                Enviamos um código de 8 dígitos via <strong>{{ canalLabel(forgotChannel) }}</strong> para:
               </p>
               <p class="text-highlight font-semibold text-base mt-1 mb-3">{{ forgotDestino }}</p>
               <p class="text-muted text-xs">Digite o código abaixo para continuar:</p>
@@ -383,7 +383,7 @@
                 <input 
                   :type="showNewPassword ? 'text' : 'password'" 
                   v-model="forgotNewPassword" 
-                  placeholder="Mínimo 6 caracteres" 
+                  placeholder="Mínimo 15 caracteres (frase-senha)" 
                   required 
                   class="input-control login-input"
                 />
@@ -439,7 +439,7 @@
                 <line x1="12" y1="16" x2="12" y2="12" />
                 <line x1="12" y1="8" x2="12.01" y2="8" />
               </svg>
-              Por segurança, a nova senha <strong>não pode ser a mesma já cadastrada</strong> no sistema.
+              Por segurança, a nova senha deve conter <strong>no mínimo 15 caracteres</strong> e não pode ser a mesma já cadastrada no sistema.
             </p>
 
             <div class="modal-footer forgot-footer">
@@ -504,8 +504,9 @@ export default defineComponent({
     const forgotInfo = ref('');
     const isLoadingForgot = ref(false);
 
-    const codeDigits = ref(['', '', '', '']);
-    const boxRefs = [null, null, null, null];
+    const codeDigits = ref(['', '', '', '', '', '', '', '']);
+    const forgotResetGrant = ref('');
+    const boxRefs = [null, null, null, null, null, null, null, null];
     const setBoxRef = (el, idx) => {
       boxRefs[idx] = el;
     };
@@ -617,7 +618,7 @@ export default defineComponent({
     const handleDigitInput = (idx, event) => {
       const char = event.target.value.replace(/\D/g, '');
       codeDigits.value[idx] = char ? char.slice(-1) : '';
-      if (codeDigits.value[idx] && idx < 3 && boxRefs[idx + 1]) {
+      if (codeDigits.value[idx] && idx < 7 && boxRefs[idx + 1]) {
         boxRefs[idx + 1].focus();
       }
     };
@@ -629,7 +630,7 @@ export default defineComponent({
         }
       } else if (event.key === 'ArrowLeft' && idx > 0 && boxRefs[idx - 1]) {
         boxRefs[idx - 1].focus();
-      } else if (event.key === 'ArrowRight' && idx < 3 && boxRefs[idx + 1]) {
+      } else if (event.key === 'ArrowRight' && idx < 7 && boxRefs[idx + 1]) {
         boxRefs[idx + 1].focus();
       }
     };
@@ -637,29 +638,43 @@ export default defineComponent({
     const handleDigitPaste = (event) => {
       event.preventDefault();
       const text = (event.clipboardData || window.clipboardData).getData('text') || '';
-      const clean = text.replace(/\D/g, '').slice(0, 4);
-      for (let i = 0; i < 4; i++) {
+      const clean = text.replace(/\D/g, '').slice(0, 8);
+      for (let i = 0; i < 8; i++) {
         codeDigits.value[i] = clean[i] || '';
       }
-      const focusIndex = Math.min(clean.length, 3);
+      const focusIndex = Math.min(clean.length, 7);
       if (boxRefs[focusIndex]) {
         boxRefs[focusIndex].focus();
       }
     };
 
-    const avancarParaNovaSenha = () => {
+    const avancarParaNovaSenha = async () => {
       if (!isCodeComplete.value) {
-        forgotError.value = 'Digite todos os 4 dígitos do código.';
+        forgotError.value = 'Digite todos os 8 dígitos do código.';
         return;
       }
       forgotError.value = '';
-      forgotStep.value = 3;
+      isLoadingForgot.value = true;
+      try {
+        const code = codeDigits.value.join('');
+        const res = await authService.validarCodigo(forgotLogin.value, code);
+        forgotResetGrant.value = res.resetGrant;
+        forgotStep.value = 3;
+      } catch (err) {
+        forgotError.value = err.response?.data?.error || 'Código incorreto ou expirado.';
+      } finally {
+        isLoadingForgot.value = false;
+      }
     };
 
     const submitRedefinirSenha = async () => {
       forgotError.value = '';
-      if (!forgotNewPassword.value || forgotNewPassword.value.length < 6) {
-        forgotError.value = 'A senha deve conter no mínimo 6 caracteres.';
+      if (!forgotNewPassword.value || forgotNewPassword.value.length < 15) {
+        forgotError.value = 'A nova senha deve conter no mínimo 15 caracteres (recomenda-se uma frase-senha).';
+        return;
+      }
+      if (forgotNewPassword.value.length > 64) {
+        forgotError.value = 'A senha não pode exceder o limite de 64 caracteres.';
         return;
       }
       if (forgotNewPassword.value !== forgotConfirmPassword.value) {
@@ -668,9 +683,17 @@ export default defineComponent({
       }
       isLoadingForgot.value = true;
       try {
-        const code = codeDigits.value.join('');
-        await authService.redefinirSenha(forgotLogin.value, code, forgotNewPassword.value);
+        await authService.redefinirSenha(
+          forgotLogin.value,
+          forgotResetGrant.value,
+          forgotNewPassword.value,
+          forgotConfirmPassword.value
+        );
         forgotStep.value = 4;
+        forgotResetGrant.value = '';
+        forgotNewPassword.value = '';
+        forgotConfirmPassword.value = '';
+        codeDigits.value = ['', '', '', '', '', '', '', ''];
       } catch (err) {
         forgotError.value = err.response?.data?.error || 'Erro ao redefinir a senha.';
       } finally {
@@ -1398,15 +1421,16 @@ export default defineComponent({
 .code-boxes-wrapper {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
   margin: 20px 0;
 }
 
 .code-digit-box {
-  width: 56px;
-  height: 64px;
+  width: 42px;
+  height: 52px;
   text-align: center;
-  font-size: 1.8rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.04);

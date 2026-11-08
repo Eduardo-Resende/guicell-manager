@@ -42,10 +42,41 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     recuperacao_codigo: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.STRING(128),
       allowNull: true,
     },
     recuperacao_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    recuperacao_tentativas: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+    },
+    recuperacao_solicitado_em: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    recuperacao_grant_hash: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+    },
+    recuperacao_grant_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    versao_sessao: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false,
+    },
+    login_tentativas: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+    },
+    login_bloqueado_ate: {
       type: DataTypes.DATE,
       allowNull: true,
     },

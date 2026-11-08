@@ -1,10 +1,15 @@
+'use strict';
+
 const jwt = require('jsonwebtoken');
+const { Usuario } = require('../models');
 
 /**
- * Middleware de autenticação JWT.
- * Verifica o token Bearer no header Authorization.
+ * Middleware de autenticação JWT com validação de revogação de sessão (versao_sessao)
+ * e status ativo no banco de dados.
+ *
+ * Retorna HTTP 401 para credenciais ausentes, inválidas, expiradas ou revogadas.
  */
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // "Bearer <token>"
 
@@ -13,19 +18,50 @@ const authenticate = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.usuario = decoded; // { id_usuario, login, perfil }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      algorithms: ['HS256'],
+    });
+
+    // Consulta de integridade no banco de dados
+    const usuario = await Usuario.findByPk(decoded.id_usuario, {
+      attributes: ['id_usuario', 'nome', 'login', 'perfil', 'ativo', 'versao_sessao'],
+    });
+
+    if (!usuario || !usuario.ativo) {
+      return res.status(401).json({ error: 'Sessão inválida. Usuário inativo ou inexistente.' });
+    }
+
+    // Validação de revogação imediata (ex: senha alterada, logout ou redefinição)
+    const versaoToken = decoded.versao_sessao !== undefined ? decoded.versao_sessao : 1;
+    const versaoBanco = usuario.versao_sessao !== undefined ? usuario.versao_sessao : 1;
+
+    if (versaoToken !== versaoBanco) {
+      return res.status(401).json({ error: 'Sessão revogada ou expirada por alteração de credencial. Faça login novamente.' });
+    }
+
+    req.usuario = {
+      id_usuario: usuario.id_usuario,
+      login: usuario.login,
+      nome: usuario.nome,
+      perfil: usuario.perfil,
+      versao_sessao: usuario.versao_sessao,
+    };
+
     next();
   } catch (err) {
-    return res.status(403).json({ error: 'Token inválido ou expirado.' });
+    return res.status(401).json({ error: 'Token inválido ou expirado.' });
   }
 };
 
 /**
  * Middleware de autorização por perfil estático.
  * Uso: authorize(['Gerente']) ou authorize(['Gerente', 'Atendente'])
+ * Retorna HTTP 403 para usuários autenticados sem permissão.
  */
 const authorize = (perfisPermitidos) => (req, res, next) => {
+  if (!req.usuario) {
+    return res.status(401).json({ error: 'Acesso negado. Usuário não autenticado.' });
+  }
   if (!perfisPermitidos.includes(req.usuario.perfil)) {
     return res.status(403).json({
       error: `Acesso negado. Requer perfil: ${perfisPermitidos.join(' ou ')}.`,
@@ -36,8 +72,8 @@ const authorize = (perfisPermitidos) => (req, res, next) => {
 
 /**
  * Middleware de verificação granular e dinâmica de permissões.
- * Avalia se o usuário ou perfil possui a chave (ou pelo menos uma chave da lista) liberada no banco.
- * Uso: checkPermission('estoque.criar_editar') ou checkPermission(['caixa.ver', 'caixa.abrir_fechar'])
+ * Avalia se o usuário ou perfil possui a chave liberada no banco.
+ * Retorna HTTP 403 se o usuário autenticado não possuir a permissão.
  */
 const checkPermission = (chaveOuLista) => async (req, res, next) => {
   try {

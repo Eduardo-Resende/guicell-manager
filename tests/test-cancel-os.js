@@ -1,19 +1,30 @@
-const axios = require('../backend/node_modules/axios');
+'use strict';
 
-const BASE_URL = 'http://localhost:3001/api';
+process.env.NODE_ENV = 'test';
+const path = require('path');
+require('../backend/node_modules/dotenv').config({ path: path.resolve(__dirname, '../backend/.env') });
+const http = require('http');
+const axios = require('../backend/node_modules/axios');
+const app = require('../backend/src/app');
 
 async function testCancelamentoOS() {
   console.log('=== TESTE DE CANCELAMENTO DE OS COM DEVOLUÇÃO DE ESTOQUE E ESTORNO FINANCEIRO ===\n');
 
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, resolve));
+  const port = server.address().port;
+  const BASE_URL = `http://127.0.0.1:${port}/api`;
+  const testHeaders = { 'x-test-bypass-rate-limit': '1' };
+
   try {
     // 1. Autenticação
-    const resGerente = await axios.post(`${BASE_URL}/auth/login`, { login: 'gerente', senha: 'guicell123' });
+    const resGerente = await axios.post(`${BASE_URL}/auth/login`, { login: 'gerente', senha: 'guicell123' }, { headers: testHeaders });
     const tokenGerente = resGerente.data.token;
-    const authG = { headers: { Authorization: `Bearer ${tokenGerente}` } };
+    const authG = { headers: { Authorization: `Bearer ${tokenGerente}`, ...testHeaders } };
 
-    const resAtendente = await axios.post(`${BASE_URL}/auth/login`, { login: 'atendente', senha: 'guicell123' });
+    const resAtendente = await axios.post(`${BASE_URL}/auth/login`, { login: 'atendente', senha: 'guicell123' }, { headers: testHeaders });
     const tokenAtendente = resAtendente.data.token;
-    const authA = { headers: { Authorization: `Bearer ${tokenAtendente}` } };
+    const authA = { headers: { Authorization: `Bearer ${tokenAtendente}`, ...testHeaders } };
 
     console.log('✔ Usuários autenticados com sucesso.');
 
@@ -188,6 +199,8 @@ async function testCancelamentoOS() {
   } catch (err) {
     console.error('\n❌ ERRO NO TESTE:', err.response?.data || err.message);
     process.exit(1);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
   }
 }
 

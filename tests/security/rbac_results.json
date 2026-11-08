@@ -21,8 +21,8 @@
     "id": 3,
     "cenario": "Acesso com token JWT inválido/adulterado",
     "endpoint": "GET /api/usuarios",
-    "statusEsperado": 403,
-    "statusObtido": 403,
+    "statusEsperado": 401,
+    "statusObtido": 401,
     "resultado": "Sucesso (Acesso Bloqueado/Permitido Conforme Regra)",
     "detalhes": "Token inválido ou expirado."
   },

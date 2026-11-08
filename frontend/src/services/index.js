@@ -11,8 +11,14 @@ export const authService = {
     return data;
   },
   solicitarRecuperacao: (login, canal) => api.post('/auth/recuperar-senha/solicitar', { login, canal }).then(r => r.data),
-  redefinirSenha: (login, codigo, novaSenha) => api.post('/auth/recuperar-senha/redefinir', { login, codigo, novaSenha }).then(r => r.data),
-  logout() {
+  validarCodigo: (login, codigo) => api.post('/auth/recuperar-senha/validar-codigo', { login, codigo }).then(r => r.data),
+  redefinirSenha: (login, resetGrant, novaSenha, confirmarNovaSenha) => api.post('/auth/recuperar-senha/redefinir', { login, resetGrant, novaSenha, confirmarNovaSenha }).then(r => r.data),
+  async logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // Ignora erro de rede para garantir limpeza local
+    }
     localStorage.removeItem('guicell_token');
     localStorage.removeItem('guicell_usuario');
     localStorage.removeItem('guicell_user');
