@@ -165,32 +165,43 @@ async function testCancelamentoOS() {
       }
     }
 
-    // 14. Teste de Validação 4: Cancelamento via PATCH /status sem motivo -> 400
+    // 14. Validação A01: PATCH /status para Cancelado deve ser rejeitado (direcionando para rota dedicada)
     const resNovaOS2 = await axios.post(`${BASE_URL}/ordens-servico`, {
       id_cliente: cliente.id_cliente,
       id_aparelho: aparelho.id_aparelho,
-      defeito_relatado: 'Teste PATCH status cancelamento sem motivo',
+      defeito_relatado: 'Teste rejeição PATCH status cancelado',
       valor_orcado: 100.00
     }, authG);
     const idOS2 = resNovaOS2.data.id_movimentacao;
 
     try {
       await axios.patch(`${BASE_URL}/ordens-servico/${idOS2}/status`, { status: 'Cancelado' }, authG);
-      throw new Error('Falha: PATCH /status para Cancelado sem motivo deveria ser rejeitado');
+      throw new Error('Falha: PATCH /status para Cancelado deveria ser rejeitado');
     } catch (err) {
       if (err.response?.status === 400) {
-        console.log('✔ Validação PATCH /status: Rejeitada alteração para Cancelado sem justificativa (400 Bad Request).');
+        console.log('✔ Validação A01: PATCH /status para Cancelado rejeitado com 400 (exige rota dedicada POST /cancelar).');
       } else {
         throw err;
       }
     }
 
-    // Cancelar com motivo via PATCH
-    await axios.patch(`${BASE_URL}/ordens-servico/${idOS2}/status`, {
-      status: 'Cancelado',
-      motivo: 'Cancelamento via painel com justificativa válida'
+    // Cancelar legitimamente via rota dedicada POST /cancelar
+    await axios.post(`${BASE_URL}/ordens-servico/${idOS2}/cancelar`, {
+      motivo: 'Cancelamento via rota dedicada com justificativa'
     }, authG);
-    console.log('✔ PATCH /status para Cancelado com justificativa aceito com sucesso.');
+    console.log('✔ Cancelamento via rota dedicada POST /cancelar executado com sucesso.');
+
+    // Tentar alterar status via PATCH após cancelamento deve ser rejeitado (A01)
+    try {
+      await axios.patch(`${BASE_URL}/ordens-servico/${idOS2}/status`, { status: 'Em Reparo' }, authG);
+      throw new Error('Falha: PATCH /status em OS cancelada deveria ser rejeitado');
+    } catch (err) {
+      if (err.response?.status === 400) {
+        console.log('✔ Validação A01: PATCH /status em OS cancelada rejeitado com 400.');
+      } else {
+        throw err;
+      }
+    }
 
     console.log('\n============================================================');
     console.log('🎉 TODOS OS TESTES DE CANCELAMENTO DE OS FORAM APROVADOS!');

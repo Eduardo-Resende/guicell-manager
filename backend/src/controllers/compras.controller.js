@@ -126,14 +126,27 @@ const criar = async (req, res) => {
       id_usuario:               req.usuario.id_usuario,
     }, { transaction: t });
 
+    // Bloqueia e valida produtos existentes em ordem ascendente para prevenir deadlocks (A04)
+    const produtosExistentesMap = new Map();
+    const itensComProduto = (itens || []).filter(i => i.id_produto);
+    const sortedExistentesIds = Array.from(new Set(itensComProduto.map(i => Number(i.id_produto)))).sort((a, b) => a - b);
+
+    for (const pId of sortedExistentesIds) {
+      const produto = await Produto.findByPk(pId, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!produto) {
+        await t.rollback();
+        return res.status(404).json({ error: `Produto #${pId} não encontrado.` });
+      }
+      produtosExistentesMap.set(pId, produto);
+    }
+
     for (const item of itens) {
-      let produtoId = item.id_produto || null;
+      let produtoId = item.id_produto ? Number(item.id_produto) : null;
 
       if (produtoId) {
-        const produto = await Produto.findByPk(produtoId, { transaction: t });
-        if (!produto) { await t.rollback(); return res.status(404).json({ error: `Produto #${produtoId} não encontrado.` }); }
+        const produto = produtosExistentesMap.get(produtoId);
         await produto.update({
-          estoque_atual: produto.estoque_atual + parseInt(item.quantidade),
+          estoque_atual: produto.estoque_atual + parseInt(item.quantidade, 10),
           valor_custo:   parseFloat(item.valor_custo_unitario),
         }, { transaction: t });
       } else {
@@ -278,18 +291,22 @@ const cancelar = async (req, res) => {
     const dadosAnteriores = compra.toJSON();
     const motivoLimpo = String(motivo).trim();
 
-    // 1. Agrupar quantidades por produto e validar saldo disponível em estoque
+    // 1. Agrupar quantidades por produto e validar saldo disponível com lock ordenado (A04)
     const qtdPorProduto = {};
     for (const item of compra.itens || []) {
-      qtdPorProduto[item.id_produto] = (qtdPorProduto[item.id_produto] || 0) + parseInt(item.quantidade, 10);
+      if (item.id_produto) {
+        qtdPorProduto[item.id_produto] = (qtdPorProduto[item.id_produto] || 0) + parseInt(item.quantidade, 10);
+      }
     }
 
+    const sortedProdIds = Object.keys(qtdPorProduto).map(Number).sort((a, b) => a - b);
     const produtosParaAtualizar = [];
-    for (const [idProdStr, qtdEstorno] of Object.entries(qtdPorProduto)) {
-      const produto = await Produto.findByPk(Number(idProdStr), { transaction: t });
+    for (const idProd of sortedProdIds) {
+      const qtdEstorno = qtdPorProduto[idProd];
+      const produto = await Produto.findByPk(idProd, { transaction: t, lock: t.LOCK.UPDATE });
       if (!produto) {
         await t.rollback();
-        return res.status(404).json({ error: `Produto #${idProdStr} da compra não encontrado no estoque.` });
+        return res.status(404).json({ error: `Produto #${idProd} da compra não encontrado no estoque.` });
       }
       if (produto.estoque_atual < qtdEstorno) {
         await t.rollback();

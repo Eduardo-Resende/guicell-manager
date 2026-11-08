@@ -70,16 +70,47 @@ const criar = async (req, res) => {
       await t.rollback(); return res.status(400).json({ error: 'Forma de pagamento é obrigatória.' });
     }
 
+    // Validação, ordenação e lock pessimista para evitar lost update e deadlock (A04)
+    const qtdPorProduto = {};
+    for (const item of itens) {
+      const pId = Number(item.id_produto);
+      const qtd = parseInt(item.quantidade, 10);
+      if (!pId || isNaN(qtd) || qtd <= 0) {
+        await t.rollback();
+        return res.status(400).json({ error: 'Item de venda com produto ou quantidade inválida.' });
+      }
+      qtdPorProduto[pId] = (qtdPorProduto[pId] || 0) + qtd;
+    }
+
+    const sortedProdIds = Object.keys(qtdPorProduto).map(Number).sort((a, b) => a - b);
+    const produtosMap = new Map();
+
+    for (const pId of sortedProdIds) {
+      const produto = await Produto.findByPk(pId, { transaction: t, lock: t.LOCK.UPDATE });
+      if (!produto) {
+        await t.rollback();
+        return res.status(404).json({ error: `Produto ${pId} não encontrado.` });
+      }
+      if (produto.estoque_atual < qtdPorProduto[pId]) {
+        await t.rollback();
+        return res.status(400).json({ error: `Estoque insuficiente: ${produto.descricao}` });
+      }
+      produtosMap.set(pId, produto);
+    }
+
     let totalBruto = 0;
     for (const item of itens) {
-      const produto = await Produto.findByPk(item.id_produto, { transaction: t });
-      if (!produto) { await t.rollback(); return res.status(404).json({ error: `Produto ${item.id_produto} não encontrado.` }); }
-      if (produto.estoque_atual < item.quantidade) {
-        await t.rollback(); return res.status(400).json({ error: `Estoque insuficiente: ${produto.descricao}` });
-      }
+      const produto = produtosMap.get(Number(item.id_produto));
       item.valor_unitario = parseFloat(produto.valor_venda);
-      totalBruto += item.valor_unitario * item.quantidade;
-      await produto.update({ estoque_atual: produto.estoque_atual - item.quantidade }, { transaction: t });
+      totalBruto += item.valor_unitario * parseInt(item.quantidade, 10);
+    }
+
+    for (const pId of sortedProdIds) {
+      const produto = produtosMap.get(pId);
+      await produto.update(
+        { estoque_atual: produto.estoque_atual - qtdPorProduto[pId] },
+        { transaction: t }
+      );
     }
 
     const valor_total = parseFloat((totalBruto - (desconto || 0)).toFixed(2));
@@ -211,12 +242,21 @@ const cancelar = async (req, res) => {
     const estavaPaga = venda.status_pagamento === 'pago';
     const motivoLimpo = String(motivo).trim();
 
-    // 1. Devolver os produtos vendidos ao estoque
+    // 1. Devolver os produtos vendidos ao estoque de forma ordenada e com lock pessimista (A04)
+    const qtdRetornoPorProduto = {};
     for (const item of venda.itens || []) {
-      const produto = await Produto.findByPk(item.id_produto, { transaction: t });
+      const pId = Number(item.id_produto);
+      const qtd = parseInt(item.quantidade, 10);
+      if (pId && qtd > 0) {
+        qtdRetornoPorProduto[pId] = (qtdRetornoPorProduto[pId] || 0) + qtd;
+      }
+    }
+    const sortedRetornoIds = Object.keys(qtdRetornoPorProduto).map(Number).sort((a, b) => a - b);
+    for (const pId of sortedRetornoIds) {
+      const produto = await Produto.findByPk(pId, { transaction: t, lock: t.LOCK.UPDATE });
       if (produto) {
         await produto.update(
-          { estoque_atual: produto.estoque_atual + parseInt(item.quantidade, 10) },
+          { estoque_atual: produto.estoque_atual + qtdRetornoPorProduto[pId] },
           { transaction: t }
         );
       }

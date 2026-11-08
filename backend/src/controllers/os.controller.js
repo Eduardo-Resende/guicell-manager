@@ -23,10 +23,14 @@ const osIncludes = [
 ];
 
 // Gera número de OS sequencial: 001, 002... 999, 1000...
-const gerarNumeroOS = async () => {
-  const count = await Movimentacao.count({ where: { origem: 'os' } });
-  let seq = count + 1;
-  while (await Movimentacao.count({ where: { origem: 'os', numero_os: String(seq).padStart(3, '0') } }) > 0) {
+const gerarNumeroOS = async (transaction) => {
+  const [maxRes] = await sequelize.query(
+    "SELECT MAX(CAST(numero_os AS UNSIGNED)) AS max_seq FROM movimentacao WHERE origem = 'os'",
+    { transaction, lock: transaction ? transaction.LOCK.UPDATE : undefined }
+  );
+  const maxSeq = (maxRes && maxRes[0] && maxRes[0].max_seq) ? parseInt(maxRes[0].max_seq, 10) : 0;
+  let seq = maxSeq + 1;
+  while (await Movimentacao.count({ where: { origem: 'os', numero_os: String(seq).padStart(3, '0') }, transaction }) > 0) {
     seq++;
   }
   return String(seq).padStart(3, '0');
@@ -76,22 +80,55 @@ const criar = async (req, res) => {
     if (!id_cliente || !id_aparelho || !defeito_relatado) {
       return res.status(400).json({ error: 'Cliente, aparelho e defeito são obrigatórios.' });
     }
-    const numero_os = await gerarNumeroOS();
-    const os = await Movimentacao.create({
-      origem: 'os',
-      numero_os,
-      id_cliente,
-      id_aparelho,
-      id_tecnico: id_tecnico || null,
-      id_usuario: req.usuario.id_usuario,
-      defeito_relatado,
-      diagnostico: diagnostico || null,
-      valor_orcado: valor_orcado || null,
-      prazo_estimado: prazo_estimado || null,
-      status_os: 'Aguardando Diagnóstico',
-      data_movimentacao: new Date(),
-    });
-    return res.status(201).json(os);
+
+    // A03: Validação de consistência entre Cliente e Aparelho
+    const cliente = await Cliente.findByPk(id_cliente);
+    if (!cliente) {
+      return res.status(404).json({ error: 'Cliente não encontrado.' });
+    }
+    const aparelho = await Aparelho.findByPk(id_aparelho);
+    if (!aparelho) {
+      return res.status(404).json({ error: 'Aparelho não encontrado.' });
+    }
+    if (parseInt(aparelho.id_cliente, 10) !== parseInt(id_cliente, 10)) {
+      return res.status(422).json({ error: 'O aparelho informado não pertence ao cliente selecionado.' });
+    }
+
+    // A05: Concorrência na numeração de OS com retry transacional e backoff exponencial
+    const MAX_TENTATIVAS = 10;
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+      const t = await sequelize.transaction();
+      try {
+        const numero_os = await gerarNumeroOS(t);
+        const os = await Movimentacao.create({
+          origem: 'os',
+          numero_os,
+          id_cliente,
+          id_aparelho,
+          id_tecnico: id_tecnico || null,
+          id_usuario: req.usuario.id_usuario,
+          defeito_relatado,
+          diagnostico: diagnostico || null,
+          valor_orcado: valor_orcado || null,
+          prazo_estimado: prazo_estimado || null,
+          status_os: 'Aguardando Diagnóstico',
+          data_movimentacao: new Date(),
+        }, { transaction: t });
+
+        await t.commit();
+        return res.status(201).json(os);
+      } catch (err) {
+        if (!t.finished) await t.rollback();
+        if (err.name === 'SequelizeUniqueConstraintError' && tentativa < MAX_TENTATIVAS) {
+          await new Promise(r => setTimeout(r, Math.floor(Math.random() * 40 * tentativa) + 20));
+          continue;
+        }
+        console.error('[OS] Erro ao criar:', err);
+        return res.status(err.name === 'SequelizeUniqueConstraintError' ? 409 : 500).json({
+          error: err.name === 'SequelizeUniqueConstraintError' ? 'Conflito de numeração de OS. Tente novamente.' : 'Erro interno.'
+        });
+      }
+    }
   } catch (err) {
     console.error('[OS] Erro ao criar:', err);
     return res.status(500).json({ error: 'Erro interno.' });
@@ -110,15 +147,15 @@ const atualizarItensEstoque = async (osId, novosItens, transaction) => {
   for (const item of novosItens) {
     qtdNovaMap[item.id_produto] = (qtdNovaMap[item.id_produto] || 0) + item.quantidade;
   }
-  const todosProdutoIds = new Set([
+  const todosProdutoIds = Array.from(new Set([
     ...Object.keys(qtdExistenteMap).map(Number),
     ...Object.keys(qtdNovaMap).map(Number),
-  ]);
+  ])).sort((a, b) => a - b);
 
   for (const prodId of todosProdutoIds) {
     const diff = (qtdNovaMap[prodId] || 0) - (qtdExistenteMap[prodId] || 0);
     if (diff !== 0) {
-      const produto = await Produto.findByPk(prodId, { transaction });
+      const produto = await Produto.findByPk(prodId, { transaction, lock: transaction.LOCK.UPDATE });
       if (!produto) throw new Error(`Produto #${prodId} não encontrado.`);
       if (diff > 0 && produto.estoque_atual < diff) {
         throw new Error(`Estoque insuficiente para a peça: ${produto.descricao}`);
@@ -138,84 +175,114 @@ const atualizarItensEstoque = async (osId, novosItens, transaction) => {
   }
 };
 
-// ─── Atualizar status ─────────────────────────────────────────────────────────
+// ─── Atualizar status / dados da OS ───────────────────────────────────────────
 const atualizarStatus = async (req, res) => {
   const t = await sequelize.transaction();
   try {
-    const { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado } = req.body;
-    const os = await Movimentacao.findOne({ where: { id_movimentacao: req.params.id, origem: 'os' }, transaction: t });
-    if (!os) { await t.rollback(); return res.status(404).json({ error: 'OS não encontrada.' }); }
-
-    const statusValidos = ['Aguardando Diagnóstico', 'Aguardando Cliente', 'Em Reparo', 'Aguardando Peça', 'Concluído', 'Entregue', 'Cancelado'];
-    if (status && !statusValidos.includes(status)) {
-      await t.rollback(); return res.status(400).json({ error: 'Status inválido.' });
+    const { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado, id_cliente, id_aparelho } = req.body;
+    const os = await Movimentacao.findOne({
+      where: { id_movimentacao: req.params.id, origem: 'os' },
+      transaction: t,
+      lock: t.LOCK.UPDATE,
+    });
+    if (!os) {
+      await t.rollback();
+      return res.status(404).json({ error: 'OS não encontrada.' });
     }
-    if (os.status_os === 'Entregue' && status !== 'Entregue') {
+
+    // A01 & A02: Bloqueio de mutações a partir de estados finais e bloqueio de rotas alternativas
+    if (os.status_os === 'Cancelado') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Não é possível alterar uma Ordem de Serviço cancelada.' });
+    }
+    if (os.status_os === 'Entregue') {
+      await t.rollback();
+      return res.status(400).json({ error: 'Não é possível alterar uma OS já entregue.' });
+    }
+
+    if (status === 'Cancelado') {
       await t.rollback();
       return res.status(400).json({
-        error: status === 'Cancelado'
-          ? 'Para cancelar uma OS já entregue, utilize a opção de cancelamento de OS informando a justificativa.'
-          : 'Não é possível alterar uma OS já entregue.',
+        error: 'Para cancelar uma Ordem de Serviço, utilize a rota dedicada de cancelamento (POST /api/ordens-servico/:id/cancelar).',
       });
+    }
+
+    if (status === 'Entregue') {
+      await t.rollback();
+      return res.status(400).json({
+        error: 'Para entregar a Ordem de Serviço, utilize a rota de fechamento financeiro (POST /api/ordens-servico/:id/fechar).',
+      });
+    }
+
+    const statusValidos = ['Aguardando Diagnóstico', 'Aguardando Cliente', 'Em Reparo', 'Aguardando Peça', 'Concluído'];
+    if (status && !statusValidos.includes(status)) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Status inválido.' });
     }
 
     const perms = req.usuario?.permissoes || {};
     if (status && status !== os.status_os) {
-      if (status === 'Cancelado' && !perms['os.excluir']) {
-        await t.rollback(); return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para cancelar ordens de serviço (os.excluir).' });
-      }
-      if (status !== 'Cancelado' && !perms['os.status']) {
-        await t.rollback(); return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para alterar o status da OS (os.status).' });
-      }
-      if (status === 'Entregue') {
-        await fin.exigirSessaoAberta(t, 'entrega de Ordens de Serviço');
+      if (!perms['os.status']) {
+        await t.rollback();
+        return res.status(403).json({ error: 'Acesso negado: Você não possui permissão para alterar o status da OS (os.status).' });
       }
     }
 
     if (itens !== undefined) {
-      try { await atualizarItensEstoque(os.id_movimentacao, itens, t); }
-      catch (error) { await t.rollback(); return res.status(400).json({ error: error.message }); }
+      try {
+        await atualizarItensEstoque(os.id_movimentacao, itens, t);
+      } catch (error) {
+        await t.rollback();
+        return res.status(400).json({ error: error.message });
+      }
+    }
+
+    // Bloqueio estrito de campos financeiros em rotas genéricas de OS (FIN01, FIN02)
+    const camposFinanceirosEnviados = [
+      'forma_pagamento',
+      'status_pagamento',
+      'valor_total',
+      'valor_final',
+      'valor_pago',
+      'pagamentos',
+    ].filter((campo) => req.body[campo] !== undefined);
+
+    if (camposFinanceirosEnviados.length > 0) {
+      await t.rollback();
+      return res.status(400).json({
+        error: `Alteração financeira não permitida: os campos [${camposFinanceirosEnviados.join(', ')}] não podem ser modificados via rota genérica de atualização. Para faturar ou entregar uma OS, utilize a rota dedicada POST /api/ordens-servico/:id/fechar; para quitar OS fiado, utilize POST /api/ordens-servico/:id/pagar.`,
+        code: 'CAMPOS_FINANCEIROS_PROTEGIDOS',
+      });
     }
 
     const payload = {};
     if (status) payload.status_os = status;
     if (status === 'Concluído') payload.data_fechamento = new Date();
-    if (status && !['Concluído', 'Entregue'].includes(status)) payload.data_fechamento = null;
+    if (status && status !== 'Concluído') payload.data_fechamento = null;
     if (diagnostico  !== undefined) payload.diagnostico  = diagnostico;
     if (valor_orcado !== undefined) payload.valor_orcado = valor_orcado;
     if (prazo_estimado !== undefined) payload.prazo_estimado = prazo_estimado || null;
-    if (forma_pagamento !== undefined) {
-      payload.forma_pagamento  = forma_pagamento;
-      payload.status_pagamento = forma_pagamento === 'Fiado' ? 'pendente' : 'pago';
-    }
 
-    if (status === 'Cancelado') {
-      const motivo = req.body?.motivo;
-      if (!motivo || !String(motivo).trim()) {
-        await t.rollback();
-        return res.status(400).json({ error: 'O motivo do cancelamento é obrigatório.' });
-      }
-      payload.status_pagamento = 'cancelado';
-      payload.motivo_cancelamento = String(motivo).trim();
-      const itensExistentes = await ItemMovimentacao.findAll({ where: { id_movimentacao: os.id_movimentacao }, transaction: t });
-      for (const item of itensExistentes) {
-        const prod = await Produto.findByPk(item.id_produto, { transaction: t });
-        if (prod) {
-          await prod.update({ estoque_atual: prod.estoque_atual + parseInt(item.quantidade, 10) }, { transaction: t });
+    // A03 & CT12: Validação de coerência cliente-aparelho na edição de OS
+    const targetClienteId = id_cliente !== undefined ? Number(id_cliente) : os.id_cliente;
+    const targetAparelhoId = id_aparelho !== undefined ? Number(id_aparelho) : os.id_aparelho;
+
+    if (id_aparelho !== undefined || id_cliente !== undefined) {
+      if (targetAparelhoId) {
+        const ap = await Aparelho.findByPk(targetAparelhoId, { transaction: t });
+        if (!ap) {
+          await t.rollback();
+          return res.status(404).json({ error: 'Aparelho informado não encontrado.' });
+        }
+        if (targetClienteId && ap.id_cliente !== targetClienteId) {
+          await t.rollback();
+          return res.status(422).json({
+            error: 'Incoerência de cadastro: o aparelho informado não pertence ao cliente indicado.',
+          });
         }
       }
-    }
-
-    if (status === 'Cancelado' && LogAuditoria) {
-      await LogAuditoria.create({
-        id_usuario: req.usuario?.id_usuario || os.id_usuario,
-        acao: 'CANCELAR',
-        entidade: 'movimentacao',
-        id_registro: os.id_movimentacao,
-        dados_anteriores: os.toJSON(),
-        dados_posteriores: { ...os.toJSON(), ...payload },
-        ip_origem: req.ip,
-      }, { transaction: t });
+      if (id_cliente !== undefined) payload.id_cliente = id_cliente;
+      if (id_aparelho !== undefined) payload.id_aparelho = id_aparelho;
     }
 
     await os.update(payload, { transaction: t });
@@ -224,7 +291,7 @@ const atualizarStatus = async (req, res) => {
     const updatedOS = await Movimentacao.findOne({ where: { id_movimentacao: os.id_movimentacao }, include: osIncludes });
     return res.json(updatedOS);
   } catch (err) {
-    await t.rollback();
+    if (!t.finished) await t.rollback();
     console.error('[OS] Erro ao atualizar:', err);
     return res.status(500).json({ error: 'Erro interno.' });
   }
@@ -419,12 +486,17 @@ const cancelar = async (req, res) => {
     const dadosAnteriores = os.toJSON();
     const motivoLimpo = String(motivo).trim();
 
-    // 1. Devolver peças e componentes utilizados de volta ao estoque
+    // 1. Devolver peças e componentes utilizados de volta ao estoque (ordenados e com lock)
+    const itensAgrupados = {};
     for (const item of os.itens || []) {
-      const produto = await Produto.findByPk(item.id_produto, { transaction: t });
+      itensAgrupados[item.id_produto] = (itensAgrupados[item.id_produto] || 0) + parseInt(item.quantidade, 10);
+    }
+    const sortedProdIds = Object.keys(itensAgrupados).map(Number).sort((a, b) => a - b);
+    for (const prodId of sortedProdIds) {
+      const produto = await Produto.findByPk(prodId, { transaction: t, lock: t.LOCK.UPDATE });
       if (produto) {
         await produto.update(
-          { estoque_atual: produto.estoque_atual + parseInt(item.quantidade, 10) },
+          { estoque_atual: produto.estoque_atual + itensAgrupados[prodId] },
           { transaction: t }
         );
       }

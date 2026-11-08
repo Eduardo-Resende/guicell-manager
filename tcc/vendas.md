@@ -1,7 +1,7 @@
 # Documentação Técnica e Operacional: Módulo Vendas / PDV Balcão (`VendasView.vue`)
 
 > **Documento de Arquitetura, Regras de Negócio e Manual Operacional**  
-> **Status:** Atualizado com suporte a leitor de código de barras, pagamentos divididos, controle de fiado, trava com caixa fechado e cancelamento auditado com estorno de estoque.
+> **Status:** Atualizado com suporte a leitor de código de barras, pagamentos únicos/fiado na interface, suporte a rateio/split payments na API REST, trava com caixa fechado e cancelamento auditado com estorno de estoque.
 
 ---
 
@@ -14,7 +14,7 @@ Seus principais objetivos são:
 - Oferecer busca rápida de itens por nome ou através de leitor de **código de barras**.
 - Gerenciar o carrinho de compras com cálculo instantâneo de subtotais e controle de descontos.
 - Permitir vendas anônimas (Consumidor Final) ou vinculadas a clientes cadastrados.
-- Viabilizar **pagamentos divididos** entre múltiplas formas e contas financeiras (ex: parte em dinheiro na gaveta e parte no PIX na conta da loja).
+- Viabilizar recebimentos ágeis em dinheiro, PIX, cartões ou fiado na interface web, com arquitetura de backend preparada e capacitada para **pagamentos divididos (split payments)** entre múltiplas formas e contas financeiras.
 - Gerenciar vendas a prazo (**Fiado**) com carteira de recebimentos pendentes.
 - **Trava de Caixa:** Bloquear a conclusão de vendas quando o turno de caixa não estiver aberto.
 - Suportar **cancelamento de vendas** com estorno automático do estoque e contra-lançamento financeiro auditado.
@@ -38,11 +38,11 @@ A tela é dividida em duas grandes áreas operacionais:
 - **Painel de Totais:** Subtotal dos itens, desconto aplicado e **Total a Pagar**.
 - **Alerta de Caixa Fechado:** Se o caixa não tiver sessão aberta, um banner amarelo em destaque adverte o operador e desativa o botão "Finalizar Venda".
 
-### 2.2. Modal de Pagamento & Rateio
-Ao clicar em "Finalizar Venda", abre-se o modal de liquidação financeira:
-- **Forma Única:** Seleção de Dinheiro, PIX, Cartão de Débito ou Cartão de Crédito.
-- **Pagamento Dividido:** Permite adicionar múltiplas linhas de pagamento distribuindo os valores (ex: R$ 50,00 no Cartão de Débito + R$ 30,00 no PIX). O sistema valida se a soma bate centavo por centavo com o valor da venda.
-- **Opção Fiado:** Registra a venda com status de pagamento `pendente`, gerando registro no contas a receber sem entrada imediata no caixa.
+### 2.2. Modal de Pagamento
+Ao clicar em "Finalizar Venda", abre-se o modal de liquidação financeira desenhado para agilidade máxima no balcão:
+- **Forma Única de Pagamento:** Seleção direta entre Dinheiro, PIX, Cartão de Débito ou Cartão de Crédito.
+- **Opção Fiado (A Prazo):** Registra a venda com status de pagamento `pendente`, gerando registro no contas a receber sem movimentar caixa de imediato. Exige vínculo obrigatório com cliente cadastrado.
+- **Nota sobre Pagamentos Divididos:** Na interface web atual (`VendasView.vue`), priorizou-se o fluxo de clique rápido com forma única para reduzir filas no balcão. O suporte a pagamentos divididos com múltiplas formas e contas já está totalmente implementado na API backend (`pagamentos: [{ forma, valor }]`) e nos módulos de Compras e Caixa, estando a tela preparada para receber o seletor multi-forma em evolução futura.
 
 ### 2.3. Aba de Histórico de Vendas
 - Listagem completa de todas as vendas realizadas com filtros por período e status (`pago`, `pendente`, `cancelado`).
@@ -67,9 +67,9 @@ Ao clicar em "Finalizar Venda", abre-se o modal de liquidação financeira:
 
 ### Principais Endpoints:
 - **`GET /api/vendas`** — Listagem de vendas com includes de cliente, usuário e itens.
-- **`POST /api/vendas`** — Criação de venda (baixa estoque + gera caixa se pago).
-- **`POST /api/vendas/:id/cancelar`** — Cancelamento com estorno de estoque e financeiro.
-- **`POST /api/vendas/:id/pagar-fiado`** — Liquidação de vendas a prazo pendentes.
+- **`POST /api/vendas`** — Criação de venda (baixa estoque com trava pessimista anti-deadlock + gera movimentação de caixa se pago). Aceita tanto forma única (`forma_pagamento: 'PIX'`) quanto pagamentos divididos (`pagamentos: [{ forma: 'Dinheiro', valor: 30 }, { forma: 'PIX', valor: 50 }]`).
+- **`POST /api/vendas/:id/cancelar`** — Cancelamento atômico com estorno ordenado de estoque (`LOCK.UPDATE`) e contra-lançamento financeiro integral no Caixa.
+- **`POST /api/vendas/:id/pagar-fiado`** — Liquidação de vendas a prazo pendentes (aceita forma única ou pagamentos divididos).
 
 ---
 

@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-11-08T19:40:32.667Z",
+  "ambiente": {
+    "node_env": "test",
+    "database": "guicell_manager",
+    "host": "localhost"
+  },
+  "resumo": {
+    "total": 13,
+    "aprovados": 13,
+    "reprovados": 0,
+    "taxa_sucesso": "100.0%"
+  },
+  "casos_de_teste": [
+    {
+      "id": "CT01",
+      "nome": "Bloqueio de cancelamento via PATCH /status (orientando rota POST /cancelar)",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 400 Bad Request: \"Para cancelar uma Ordem de Serviço, utilize a rota dedicada de cancelamento (POST /api/ordens-servico/:id/cancelar).\"",
+      "duracao_ms": 75
+    },
+    {
+      "id": "CT02",
+      "nome": "Bloqueio de entrega direta via PATCH /status sem fechamento financeiro",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 400 Bad Request: \"Para entregar a Ordem de Serviço, utilize a rota de fechamento financeiro (POST /api/ordens-servico/:id/fechar).\"",
+      "duracao_ms": 48
+    },
+    {
+      "id": "CT03",
+      "nome": "Cancelamento regular de OS via POST /cancelar com justificativa válida",
+      "status": "PASS",
+      "detalhe": "OS cancelada com status_os='Cancelado', estoque devolvido (20 un) e estorno no caixa #127",
+      "duracao_ms": 347
+    },
+    {
+      "id": "CT04",
+      "nome": "Rejeição de cancelamento duplicado na rota POST /cancelar",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 400 Bad Request: \"Esta Ordem de Serviço já está cancelada.\"",
+      "duracao_ms": 15
+    },
+    {
+      "id": "CT05",
+      "nome": "Bloqueio de alteração de status via PATCH em OS já cancelada",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 400 Bad Request: \"Não é possível alterar uma Ordem de Serviço cancelada.\"",
+      "duracao_ms": 8
+    },
+    {
+      "id": "CT06",
+      "nome": "Validação de coerência cliente-aparelho na criação de OS (incoerente -> 422)",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 422 Unprocessable Entity: \"O aparelho informado não pertence ao cliente selecionado.\"",
+      "duracao_ms": 9
+    },
+    {
+      "id": "CT07",
+      "nome": "Criação de OS com dados consistentes (id_aparelho compatível -> 201)",
+      "status": "PASS",
+      "detalhe": "OS criada com sucesso: ID #310, Número #172",
+      "duracao_ms": 20
+    },
+    {
+      "id": "CT08",
+      "nome": "Concorrência em Vendas: 10 requisições disputando estoque limitado",
+      "status": "PASS",
+      "detalhe": "Exatamente 4 vendas aprovadas (201), 6 rejeitadas (400 Estoque insuficiente). Estoque final: 0 (sem saldo negativo nem lost updates).",
+      "duracao_ms": 238
+    },
+    {
+      "id": "CT09",
+      "nome": "Cancelamento de Venda: devolução de estoque com lock ordenado e estorno financeiro",
+      "status": "PASS",
+      "detalhe": "Venda #315 cancelada, estoque devolvido integralmente (10 un) e estorno no caixa #133",
+      "duracao_ms": 217
+    },
+    {
+      "id": "CT10",
+      "nome": "Concorrência em Compras: cancelamento concorrente não gera saldo inconsistente",
+      "status": "PASS",
+      "detalhe": "Exatamente 1 cancelamento processado e 1 rejeitado (400 já cancelada). Estoque final retornou precisamente para 5 (devolvido uma única vez).",
+      "duracao_ms": 132
+    },
+    {
+      "id": "CT11",
+      "nome": "Concorrência na numeração de OS: geração paralela de 10 OSs sem colisão de chave",
+      "status": "PASS",
+      "detalhe": "10 Ordens de Serviço geradas concorrentemente sem colisões. Números obtidos: 179, 173, 176, 174, 178, 180, 175, 181, 177, 182",
+      "duracao_ms": 497
+    },
+    {
+      "id": "CT12",
+      "nome": "Validação de coerência cliente-aparelho na edição de OS (aparelho incompatível -> 422)",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 422 Unprocessable Entity: \"Incoerência de cadastro: o aparelho informado não pertence ao cliente indicado.\"",
+      "duracao_ms": 21
+    },
+    {
+      "id": "CT13",
+      "nome": "Auditoria do schema SQL: verificação das 4 constraints RESTRICT e comentários OTP",
+      "status": "PASS",
+      "detalhe": "Todas as 4 constraints RESTRICT e comentários de OTP conferidos com êxito no schema SQL.",
+      "duracao_ms": 1
+    }
+  ]
+}

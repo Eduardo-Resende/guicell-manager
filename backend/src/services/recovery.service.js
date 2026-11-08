@@ -4,9 +4,18 @@ const crypto = require('crypto');
 
 /**
  * Retorna a chave secreta independente para HMAC de OTP.
- * Caso não definida explicitamente em RESET_OTP_HMAC_KEY, deriva do JWT_SECRET.
+ * Em produção, exige obrigatoriamente RESET_OTP_HMAC_KEY configurada com no mínimo 32 caracteres.
+ * Em desenvolvimento/testes, se ausente, deriva de forma segura de JWT_SECRET com namespace isolado.
  */
 const getHmacSecret = () => {
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.RESET_OTP_HMAC_KEY || process.env.RESET_OTP_HMAC_KEY.length < 32) {
+      throw new Error(
+        'CONFIGURAÇÃO CRÍTICA DE SEGURANÇA: A variável de ambiente RESET_OTP_HMAC_KEY deve ser configurada em produção com no mínimo 32 caracteres (256 bits).'
+      );
+    }
+    return process.env.RESET_OTP_HMAC_KEY;
+  }
   return process.env.RESET_OTP_HMAC_KEY || `${process.env.JWT_SECRET || 'guicell_default_secret'}_otp_hmac_key_v1`;
 };
 

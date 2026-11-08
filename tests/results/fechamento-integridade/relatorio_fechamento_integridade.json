@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-11-08T19:40:39.936Z",
+  "ambiente": {
+    "node_env": "test",
+    "database": "guicell_manager",
+    "host": "localhost"
+  },
+  "resumo": {
+    "total": 13,
+    "aprovados": 13,
+    "reprovados": 0,
+    "taxa_sucesso": "100.0%"
+  },
+  "casos_de_teste": [
+    {
+      "id": "FIN01",
+      "nome": "Bloqueio de forma_pagamento em PATCH /os/:id/status sem status",
+      "status": "PASS",
+      "detalhe": "Rejeitado com 400 Bad Request. Status mantido como 'aberto' e 0 lançamentos em caixa.",
+      "duracao_ms": 79
+    },
+    {
+      "id": "FIN02",
+      "nome": "Rejeição de campos financeiros em PUT e PATCH (com e sem status)",
+      "status": "PASS",
+      "detalhe": "Todas as 4 tentativas de injeção financeira em PUT/PATCH foram rejeitadas com HTTP 400. Status não alterado para pago.",
+      "duracao_ms": 93
+    },
+    {
+      "id": "FIN03",
+      "nome": "Usuário restrito a os.editar não consegue confirmar recebimento por nenhuma rota",
+      "status": "PASS",
+      "detalhe": "Usuário restrito bloqueado em POST /fechar (403), POST /pagar (403) e PATCH genérico (400).",
+      "duracao_ms": 275
+    },
+    {
+      "id": "FIN04",
+      "nome": "Fechamento legítimo gera movimentação, caixa e pernas financeiras conciliadas",
+      "status": "PASS",
+      "detalhe": "OS entregue e paga: R$ 180.5 conciliado em movimentacao, caixa (#114) e caixa_pagamentos (#123).",
+      "duracao_ms": 116
+    },
+    {
+      "id": "FIN05",
+      "nome": "Entrega fiada permanece pendente sem caixa e pagamento posterior efetiva baixa",
+      "status": "PASS",
+      "detalhe": "Fiado permaneceu pendente sem caixa; quitação posterior gerou entrada de R$ 250 no caixa #115.",
+      "duracao_ms": 83
+    },
+    {
+      "id": "FIN06",
+      "nome": "Dois fechamentos simultâneos não geram recebimento duplicado (idempotência)",
+      "status": "PASS",
+      "detalhe": "Exatamente 1 fechamento processado (200) e 1 rejeitado (400 OS já finalizada). Exatamente 1 lançamento gravado no caixa.",
+      "duracao_ms": 63
+    },
+    {
+      "id": "FIN07",
+      "nome": "Falha induzida antes do commit desfaz todas as alterações (rollback atômico)",
+      "status": "PASS",
+      "detalhe": "Transação revertida com sucesso. OS preservada como 'Aguardando Diagnóstico', estoque inalterado (50 un) e 0 registros em caixa.",
+      "duracao_ms": 65
+    },
+    {
+      "id": "FIN08",
+      "nome": "Cancelamento e estorno de OS recebida preservam saldos e não duplicam estoque",
+      "status": "PASS",
+      "detalhe": "Estorno efetuado no caixa #118; estoque restaurado exatamente para 10 un e tentativa duplicada rejeitada sem novo estorno.",
+      "duracao_ms": 231
+    },
+    {
+      "id": "RF13-01",
+      "nome": "Mais de 10 OS de um cliente consultáveis por paginação sem mistura de clientes",
+      "status": "PASS",
+      "detalhe": "12/12 OSs do cliente C acessíveis (5+5+2 nas páginas 1, 2 e 3). Ordenação temporal correta e sem vazamento de OSs do cliente D.",
+      "duracao_ms": 504
+    },
+    {
+      "id": "CONC01",
+      "nome": "OS e Venda concorrentes disputando o mesmo produto preservam integridade de estoque",
+      "status": "PASS",
+      "detalhe": "Exatamente 3 operações concluídas com sucesso e 1 rejeitada (400 Estoque insuficiente). Saldo final = 0 un (sem saldo negativo nem lost updates).",
+      "duracao_ms": 214
+    },
+    {
+      "id": "CONC02",
+      "nome": "Compra e Venda concorrentes envolvendo o mesmo produto preservam saldo exato",
+      "status": "PASS",
+      "detalhe": "Concorrência resolvida sem deadlocks: 1 compra processada (+4), 2 vendas processadas (-4). Estoque final conferido: 5 un.",
+      "duracao_ms": 208
+    },
+    {
+      "id": "DB01",
+      "nome": "Conferência física das FKs no information_schema do MySQL 8 (DELETE_RULE=RESTRICT)",
+      "status": "PASS",
+      "detalhe": "Todas as 4 Foreign Keys verificadas fisicamente no MySQL 8 como DELETE_RULE = RESTRICT.",
+      "duracao_ms": 32
+    },
+    {
+      "id": "REG01",
+      "nome": "Regressão completa: Cancelamento, RBAC (11/11), Consistência (13/13) e Build Frontend",
+      "status": "PASS",
+      "detalhe": "test-cancel-os: APROVADO | rbac-test (11/11): APROVADO | consistencia-suite (13/13): APROVADO | frontend-build (Vite): APROVADO",
+      "duracao_ms": 39197
+    }
+  ]
+}

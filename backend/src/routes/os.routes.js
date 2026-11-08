@@ -14,6 +14,8 @@ router.get('/pendentes', checkPermission('os'), ctrl.listarOsPendentes);
 router.get('/', checkPermission(['os', 'dashboard.ver']), ctrl.listar);
 router.get('/:id', checkPermission('os'), ctrl.buscarPorId);
 router.post('/', checkPermission('os.criar'), ctrl.criar);
+router.put('/:id', checkPermission(['os.editar', 'os.status']), ctrl.atualizarStatus);
+router.patch('/:id', checkPermission(['os.editar', 'os.status']), ctrl.atualizarStatus);
 router.patch('/:id/status', checkPermission(['os.status', 'os.editar', 'os.excluir']), ctrl.atualizarStatus);
 router.post('/:id/fechar', checkPermission('os.status'), ctrl.fechar);
 router.post('/:id/pagar', checkPermission('os.status'), ctrl.pagarOsFiado);

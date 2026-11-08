@@ -57,7 +57,7 @@ export const osService = {
   listarPendentes: () => api.get('/ordens-servico/pendentes').then(r => r.data),
   buscarPorId: (id) => api.get(`/ordens-servico/${id}`).then(r => r.data),
   criar: (dados) => api.post('/ordens-servico', dados).then(r => r.data),
-  atualizarStatus: (id, status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, forma_pagamento, prazo_estimado }).then(r => r.data),
+  atualizarStatus: (id, status, diagnostico, itens, valor_orcado, prazo_estimado) => api.patch(`/ordens-servico/${id}/status`, { status, diagnostico, itens, valor_orcado, prazo_estimado }).then(r => r.data),
   fechar: (id, dados) => api.post(`/ordens-servico/${id}/fechar`, dados).then(r => r.data),
   pagar: (id, forma_pagamento) => api.post(`/ordens-servico/${id}/pagar`, { forma_pagamento }).then(r => r.data),
   cancelar: (id, motivo) => api.post(`/ordens-servico/${id}/cancelar`, { motivo }).then(r => r.data),

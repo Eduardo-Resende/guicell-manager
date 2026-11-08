@@ -451,11 +451,11 @@ const validarCodigo = async (req, res) => {
 const redefinirSenha = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { login: userLogin, resetGrant, codigo, novaSenha, confirmarNovaSenha } = req.body;
+    const { login: userLogin, resetGrant, novaSenha, confirmarNovaSenha } = req.body;
 
-    if (!userLogin || (!resetGrant && !codigo) || !novaSenha) {
+    if (!userLogin || !resetGrant || !novaSenha) {
       await transaction.rollback();
-      return res.status(400).json({ error: 'Usuário, credencial de redefinição e nova senha são obrigatórios.' });
+      return res.status(400).json({ error: 'Usuário, credencial de redefinição (resetGrant) e nova senha são obrigatórios.' });
     }
 
     const senhaNormalizada = String(novaSenha).normalize('NFKC');
@@ -493,20 +493,8 @@ const redefinirSenha = async (req, res) => {
       return res.status(400).json({ error: 'Credencial de recuperação inválida ou expirada.' });
     }
 
-    let credencialValida = false;
-
-    // Caso 1: Fluxo padrão com Reset Grant de alta entropia
-    if (resetGrant) {
-      credencialValida = verifyResetGrant(resetGrant, usuario.recuperacao_grant_hash, usuario.recuperacao_grant_expira);
-    }
-    // Caso 2: Validação direta por OTP (fallback seguro para chamadas diretas)
-    else if (codigo) {
-      const codigoLimpo = String(codigo).trim();
-      const expiraDate = usuario.recuperacao_expira ? new Date(usuario.recuperacao_expira) : null;
-      if (expiraDate && new Date() <= expiraDate && (usuario.recuperacao_tentativas || 0) < 5) {
-        credencialValida = verifyOtpHmac(usuario.id_usuario, codigoLimpo, usuario.recuperacao_codigo);
-      }
-    }
+    // Validação estrita do Reset Grant de uso único (NIST SP 800-63B-4)
+    const credencialValida = verifyResetGrant(resetGrant, usuario.recuperacao_grant_hash, usuario.recuperacao_grant_expira);
 
     if (!credencialValida) {
       await transaction.rollback();

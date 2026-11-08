@@ -25,17 +25,78 @@ const buscarPorId = async (req, res) => {
     const cliente = await Cliente.findByPk(req.params.id, {
       include: [
         { model: Aparelho, as: 'aparelhos' },
-        {
-          model: Movimentacao, as: 'movimentacoes',
-          where: { origem: 'os' },
-          required: false,
-          limit: 10,
-        },
       ],
     });
     if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
-    return res.json(cliente);
+
+    // RF13: Consulta do histórico de OS com ordenação temporal e suporte a paginação controlada
+    const pagina = Math.max(1, parseInt(req.query.pagina, 10) || 1);
+    const limiteDefault = req.query.todos === 'true' ? 500 : (parseInt(req.query.limite, 10) || 50);
+    const limite = Math.min(Math.max(1, limiteDefault), 500);
+    const offset = (pagina - 1) * limite;
+
+    const { count, rows: movimentacoes } = await Movimentacao.findAndCountAll({
+      where: { id_cliente: cliente.id_cliente, origem: 'os' },
+      include: [
+        { model: Aparelho, as: 'aparelho', attributes: ['id_aparelho', 'marca', 'modelo', 'imei'] },
+      ],
+      order: [
+        ['data_movimentacao', 'DESC'],
+        ['id_movimentacao', 'DESC'],
+      ],
+      limit: limite,
+      offset,
+    });
+
+    const clienteData = cliente.toJSON();
+    clienteData.movimentacoes = movimentacoes;
+    clienteData.total_os = count;
+    clienteData.pagina_os = pagina;
+    clienteData.limite_os = limite;
+    clienteData.total_paginas_os = Math.ceil(count / limite);
+
+    return res.json(clienteData);
   } catch (err) {
+    console.error('[Clientes] Erro ao buscar por ID:', err);
+    return res.status(500).json({ error: 'Erro interno.' });
+  }
+};
+
+// RF13: Endpoint dedicado de consulta paginada do histórico completo de OS do cliente
+const listarHistoricoOs = async (req, res) => {
+  try {
+    const idCliente = req.params.id;
+    const cliente = await Cliente.findByPk(idCliente);
+    if (!cliente) return res.status(404).json({ error: 'Cliente não encontrado.' });
+
+    const pagina = Math.max(1, parseInt(req.query.pagina, 10) || 1);
+    const limite = Math.min(Math.max(1, parseInt(req.query.limite, 10) || 10), 100);
+    const offset = (pagina - 1) * limite;
+
+    const { count, rows: ordens } = await Movimentacao.findAndCountAll({
+      where: { id_cliente: idCliente, origem: 'os' },
+      include: [
+        { model: Aparelho, as: 'aparelho', attributes: ['id_aparelho', 'marca', 'modelo', 'imei'] },
+      ],
+      order: [
+        ['data_movimentacao', 'DESC'],
+        ['id_movimentacao', 'DESC'],
+      ],
+      limit: limite,
+      offset,
+    });
+
+    return res.json({
+      id_cliente: cliente.id_cliente,
+      nome_cliente: cliente.nome,
+      total: count,
+      pagina,
+      limite,
+      total_paginas: Math.ceil(count / limite),
+      ordens,
+    });
+  } catch (err) {
+    console.error('[Clientes] Erro ao listar histórico de OS:', err);
     return res.status(500).json({ error: 'Erro interno.' });
   }
 };
@@ -93,4 +154,4 @@ const remover = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizar, remover };
+module.exports = { listar, buscarPorId, listarHistoricoOs, criar, atualizar, remover };

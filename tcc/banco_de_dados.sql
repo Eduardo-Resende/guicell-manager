@@ -36,8 +36,8 @@ CREATE TABLE usuarios (
     email                     VARCHAR(100)                           NULL,             -- Recuperação de senha via SMTP
     telefone                  VARCHAR(20)                            NULL,             -- WhatsApp para envio de código via Evolution API
     recuperacao_codigo        VARCHAR(128)                           NULL,             -- Hash HMAC/SHA-256 do código OTP de 8 dígitos
-    recuperacao_expira        DATETIME                               NULL,             -- Expiração do código OTP (10 minutos)
-    recuperacao_tentativas    INT                                    NOT NULL DEFAULT 0, -- Falhas consecutivas de OTP (max 3 ou 5)
+    recuperacao_expira        DATETIME                               NULL,             -- Expiração do código OTP (5 minutos)
+    recuperacao_tentativas    INT                                    NOT NULL DEFAULT 0, -- Falhas consecutivas de OTP (máximo 5 tentativas)
     recuperacao_solicitado_em DATETIME                               NULL,             -- Timestamp do envio para controle de cooldown (60s)
     recuperacao_grant_hash    VARCHAR(64)                            NULL,             -- Hash SHA-256 do token Reset Grant (256 bits, etapa 3)
     recuperacao_grant_expira   DATETIME                               NULL,             -- Expiração do Reset Grant (5 minutos, uso único)
@@ -300,7 +300,7 @@ CREATE TABLE transferencias_caixa (
     FOREIGN KEY (id_conta_destino)           REFERENCES contas_financeiras(id_conta)  ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_usuario)                 REFERENCES usuarios(id_usuario)          ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_sessao)                  REFERENCES sessoes_caixa(id_sessao)      ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY (id_transferencia_estornada) REFERENCES transferencias_caixa(id_transferencia) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (id_transferencia_estornada) REFERENCES transferencias_caixa(id_transferencia) ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_usuario_cancelamento)    REFERENCES usuarios(id_usuario)          ON UPDATE CASCADE ON DELETE SET NULL
 );
 
@@ -327,8 +327,8 @@ CREATE TABLE caixa (
     FOREIGN KEY (id_usuario)           REFERENCES usuarios(id_usuario)             ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_movimentacao)      REFERENCES movimentacao(id_movimentacao)    ON UPDATE CASCADE ON DELETE SET NULL,
     FOREIGN KEY (id_sessao)            REFERENCES sessoes_caixa(id_sessao)         ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY (id_transferencia)     REFERENCES transferencias_caixa(id_transferencia) ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY (id_lancamento_origem) REFERENCES caixa(id_caixa)                  ON UPDATE CASCADE ON DELETE SET NULL
+    FOREIGN KEY (id_transferencia)     REFERENCES transferencias_caixa(id_transferencia) ON UPDATE CASCADE ON DELETE RESTRICT,
+    FOREIGN KEY (id_lancamento_origem) REFERENCES caixa(id_caixa)                  ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 -- 16. TABELA DE CAIXA PAGAMENTOS (Pernas Financeiras / Multi-Pagamento)
@@ -344,7 +344,7 @@ CREATE TABLE caixa_pagamentos (
     data               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     id_sessao          INT,
 
-    FOREIGN KEY (id_caixa)   REFERENCES caixa(id_caixa)              ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (id_caixa)   REFERENCES caixa(id_caixa)              ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_conta)   REFERENCES contas_financeiras(id_conta) ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_forma)   REFERENCES formas_pagamento(id_forma)   ON UPDATE CASCADE ON DELETE RESTRICT,
     FOREIGN KEY (id_sessao)  REFERENCES sessoes_caixa(id_sessao)     ON UPDATE CASCADE ON DELETE SET NULL

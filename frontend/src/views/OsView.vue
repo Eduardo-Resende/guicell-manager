@@ -1026,7 +1026,6 @@ export default defineComponent({
               valor_unitario: p.preco
             })),
             selectedOS.value.maoObra,
-            selectedOS.value.formaPagamento,
             selectedOS.value.prazo_raw || null
           );
         }
