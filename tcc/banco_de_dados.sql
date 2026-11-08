@@ -24,19 +24,28 @@
 -- Onde é utilizada: Login do sistema, autenticação JWT, vínculo com OS (técnico),
 -- movimentações (atendente) e lançamentos de caixa. Os campos `email` e `telefone`
 -- são usados para recuperação de senha (via WhatsApp/E-mail).
+-- Controles de Segurança: Hardening com OTP numérico 8 dígitos (SHA-256), Reset Grant de 256 bits,
+-- versionamento de sessão (versao_sessao) e proteção contra força bruta (login_tentativas/bloqueio).
 CREATE TABLE usuarios (
-    id_usuario         INT AUTO_INCREMENT PRIMARY KEY,
-    nome               VARCHAR(100)                           NOT NULL,
-    login              VARCHAR(50)                            NOT NULL UNIQUE,
-    senha_hash         VARCHAR(255)                           NOT NULL,         -- Hash Bcrypt
-    perfil             ENUM('Atendente', 'Técnico', 'Gerente') NOT NULL,       -- Cargo base
-    ativo              BOOLEAN                                NOT NULL DEFAULT TRUE,
-    email              VARCHAR(100)                           NULL,             -- Recuperação de senha
-    telefone           VARCHAR(20)                            NULL,             -- WhatsApp para envio de código
-    recuperacao_codigo VARCHAR(10)                            NULL,             -- Código temporário de recuperação
-    recuperacao_expira DATETIME                               NULL,             -- Expiração do código
-    criado_em          DATETIME                               NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em      DATETIME                               NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id_usuario                INT AUTO_INCREMENT PRIMARY KEY,
+    nome                      VARCHAR(100)                           NOT NULL,
+    login                     VARCHAR(50)                            NOT NULL UNIQUE,
+    senha_hash                VARCHAR(255)                           NOT NULL,         -- Hash Bcrypt (custo 10, Unicode NFKC, max 72 bytes)
+    perfil                    ENUM('Atendente', 'Técnico', 'Gerente') NOT NULL,       -- Cargo base
+    ativo                     BOOLEAN                                NOT NULL DEFAULT TRUE,
+    email                     VARCHAR(100)                           NULL,             -- Recuperação de senha via SMTP
+    telefone                  VARCHAR(20)                            NULL,             -- WhatsApp para envio de código via Evolution API
+    recuperacao_codigo        VARCHAR(128)                           NULL,             -- Hash HMAC/SHA-256 do código OTP de 8 dígitos
+    recuperacao_expira        DATETIME                               NULL,             -- Expiração do código OTP (10 minutos)
+    recuperacao_tentativas    INT                                    NOT NULL DEFAULT 0, -- Falhas consecutivas de OTP (max 3 ou 5)
+    recuperacao_solicitado_em DATETIME                               NULL,             -- Timestamp do envio para controle de cooldown (60s)
+    recuperacao_grant_hash    VARCHAR(64)                            NULL,             -- Hash SHA-256 do token Reset Grant (256 bits, etapa 3)
+    recuperacao_grant_expira   DATETIME                               NULL,             -- Expiração do Reset Grant (5 minutos, uso único)
+    versao_sessao             INT                                    NOT NULL DEFAULT 1, -- Versão da credencial para revogação instantânea de JWTs
+    login_tentativas          INT                                    NOT NULL DEFAULT 0, -- Falhas consecutivas de login (proteção força bruta)
+    login_bloqueado_ate       DATETIME                               NULL,             -- Bloqueio progressivo temporário de acesso
+    criado_em                 DATETIME                               NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em             DATETIME                               NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. TABELA DE CLIENTES

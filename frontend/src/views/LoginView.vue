@@ -316,7 +316,7 @@
             </div>
           </div>
 
-          <!-- STEP 2: Inserir Código de 4 Dígitos -->
+          <!-- STEP 2: Inserir Código de 8 Dígitos -->
           <div v-if="forgotStep === 2" class="text-center">
             <div class="code-instruction">
               <p class="text-white text-sm m-0">
@@ -326,7 +326,7 @@
               <p class="text-muted text-xs">Digite o código abaixo para continuar:</p>
             </div>
 
-            <!-- 4 Digits Inputs -->
+            <!-- 8 Digits Inputs -->
             <div class="code-boxes-wrapper">
               <input 
                 v-for="(digit, idx) in codeDigits" 
@@ -573,7 +573,7 @@ export default defineComponent({
       forgotDestino.value = '';
       forgotError.value = '';
       forgotInfo.value = '';
-      codeDigits.value = ['', '', '', ''];
+      codeDigits.value = ['', '', '', '', '', '', '', ''];
       forgotNewPassword.value = '';
       forgotConfirmPassword.value = '';
     };
@@ -1417,7 +1417,7 @@ export default defineComponent({
   color: var(--primary);
 }
 
-/* 4-digit code boxes */
+/* 8-digit code boxes */
 .code-boxes-wrapper {
   display: flex;
   justify-content: center;
@@ -1427,15 +1427,15 @@ export default defineComponent({
 }
 
 .code-digit-box {
-  width: 42px;
-  height: 52px;
+  width: 40px;
+  height: 50px;
   text-align: center;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.04);
   border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  border-radius: 10px;
   outline: none;
   transition: all 0.2s ease;
 }
@@ -1444,6 +1444,18 @@ export default defineComponent({
   border-color: var(--primary);
   background: rgba(34, 197, 94, 0.05);
   box-shadow: 0 0 16px var(--primary-glow);
+}
+
+@media (max-width: 440px) {
+  .code-boxes-wrapper {
+    gap: 4px;
+  }
+  .code-digit-box {
+    width: 34px;
+    height: 44px;
+    font-size: 1.05rem;
+    border-radius: 8px;
+  }
 }
 
 .btn-text {
